@@ -14,6 +14,7 @@ unsigned int hash_md5(unsigned char *md5) {
         hash = (hash << 5) + hash + md5[i];
     }
     return hash % HASH_TABLE_SIZE;
+    
 }
 
 // Fonction pour calculer le MD5 d'un chunk
