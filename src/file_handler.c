@@ -3,6 +3,7 @@
 
 void list_files(const char *path) {
     // Implémenter la logique pour lister les fichiers dans le répertoire donné
+    
 }
 
 void read_file(const char *filepath) {
