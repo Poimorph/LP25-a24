@@ -14,7 +14,11 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     *          backup_dir est le chemin vers le répertoire de sauvegarde
     */
 
+    FileList *fileList = list_files(source_dir);
+    int i = 0;
+    while (fileList[i] != NULL) {
 
+    }
 
 }
 
@@ -24,9 +28,8 @@ void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_cou
     */
 
     for (int i = 0; i < chunk_count; i++) {
-        write_file(output_filename, chunks[i])
+        write_file(output_filename, chunks[i], CHUNK_SIZE);
     }
-
 }
 
 
