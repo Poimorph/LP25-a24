@@ -60,6 +60,10 @@ void backup_file(const char *filename) {
 void write_restored_file(const char *output_filename, Chunk *chunks, int chunk_count) {
     /*
     */
+
+
+
+
 }
 
 // Fonction pour restaurer une sauvegarde

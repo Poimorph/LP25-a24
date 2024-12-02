@@ -35,7 +35,7 @@ char* read_file(const char *filepath, size_t *size) {
   FILE *file = fopen(filepath, "r"); // Ouvrir le fichier en mode lecture ("r")
     if (file == NULL) {
         perror("Erreur lors de l'ouverture du fichier");
-        return;
+        return NULL;
     }
     char buffer[1024]; // Tampon pour stocker chaque ligne lue
     printf("Contenu du fichier %s :\n", filepath);
