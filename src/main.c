@@ -26,6 +26,26 @@ void testMD5Compute(){
     printf("\n");
 }
 
+void testAddEtFindMD5(){
+    // Allocation et initialisation de la table de hachage
+    Md5Entry hash_table[HASH_TABLE_SIZE] = {{0}};
+    
+    // Exemple de chunk
+    unsigned char md5_sample[MD5_DIGEST_LENGTH] = {0x12, 0x34, 0x56, 0x78, 0x90, 0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56, 0x78, 0x90, 0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56, 0x78, 0x90, 0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56, 0x78, 0x90, 0xAB, 0xCD, 0xEF};
+
+    // Ajouter un MD5 à la table
+    add_md5(hash_table, md5_sample, 1);
+    
+    // Chercher le MD5 dans la table
+    int index = find_md5(hash_table, md5_sample);
+    
+    if (index != -1) {
+        printf("MD5 trouvé, index : %d\n", index);
+    } else {
+        printf("MD5 non trouvé\n");
+    }
+}
+
 
 int main(int argc, char *argv[]) {
     // tests :
