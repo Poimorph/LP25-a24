@@ -24,7 +24,7 @@ void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_cou
     */
 
     for (int i = 0; i < chunk_count; i++) {
-        write_file(output_filename, chunks[i])
+        write_file(output_filename, chunks[i].data, sizeof(chunks[i].data));
     }
 
 }
@@ -34,6 +34,25 @@ void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_cou
 void backup_file(const char *filename) {
     /*
     */
+
+    //Création des éléments pour la récéption des données
+    Chunk* chunks = malloc(sizeof(Chunk));
+    Md5Entry* entry  = malloc(sizeof(Md5Entry));
+    FILE* file = fopen(filename, "r");
+    //Si le fichier n'éxiste pas
+    if (!file) {
+        printf("Could not open file %s\n", filename);
+        exit(EXIT_FAILURE);
+    } else {
+        //On le déduplique
+        deduplicate_file(file, chunks, entry);
+        fclose(file);
+        if (chunks != NULL) {
+            //On écrit les chunks uniques dans le fichier de backup
+            write_backup_file(filename,chunks, sizeof(*chunks)/sizeof(Chunk));
+        }
+    }
+
 }
 
 

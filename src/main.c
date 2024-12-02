@@ -10,7 +10,7 @@
 void testMD5Compute(){
     // Exemple de données pour lesquelles on va calculer le MD5
     const char *data = "Hello, world!";
-    size_t len = strlen(data);  // Calculer la longueur des données
+    ssize_t len = strlen(data);  // Calculer la longueur des données
     
     // Tableau pour stocker le résultat du hash MD5 (16 octets)
     unsigned char md5_hash[MD5_DIGEST_LENGTH];
@@ -49,7 +49,7 @@ void testAddEtFindMD5(){
 
 int main(int argc, char *argv[]) {
     // tests :
-    testMD5Compute();
+    // testMD5Compute();
 
     // Analyse des arguments de la ligne de commande
 

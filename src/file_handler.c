@@ -24,14 +24,14 @@ void list_files(const char *path) {
 
         // Si l'entrée est un répertoire, explorer récursivement
         if (entry->d_type == DT_DIR) {
-            list_directory_recursive(fullpath);
+            // list_directory_recursive(fullpath);
         }
     }
 }
 
 
 
-void read_file(const char *filepath) {
+char* read_file(const char *filepath, size_t *size) {
   FILE *file = fopen(filepath, "r"); // Ouvrir le fichier en mode lecture ("r")
     if (file == NULL) {
         perror("Erreur lors de l'ouverture du fichier");
