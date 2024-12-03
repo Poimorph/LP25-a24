@@ -14,11 +14,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     *          backup_dir est le chemin vers le répertoire de sauvegarde
     */
 
-    FileList *fileList = list_files(source_dir);
-    int i = 0;
-    while (fileList[i] != NULL) {
 
-    }
 
 }
 
@@ -28,8 +24,9 @@ void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_cou
     */
 
     for (int i = 0; i < chunk_count; i++) {
-        write_file(output_filename, chunks[i], CHUNK_SIZE);
+        write_file(output_filename, chunks[i].data, sizeof(chunks[i].data));
     }
+
 }
 
 
@@ -37,6 +34,25 @@ void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_cou
 void backup_file(const char *filename) {
     /*
     */
+
+    //Création des éléments pour la récéption des données
+    Chunk* chunks = malloc(sizeof(Chunk));
+    Md5Entry* entry  = malloc(sizeof(Md5Entry));
+    FILE* file = fopen(filename, "r");
+    //Si le fichier n'éxiste pas
+    if (!file) {
+        printf("Could not open file %s\n", filename);
+        exit(EXIT_FAILURE);
+    } else {
+        //On le déduplique
+        deduplicate_file(file, chunks, entry);
+        fclose(file);
+        if (chunks != NULL) {
+            //On écrit les chunks uniques dans le fichier de backup
+            write_backup_file(filename,chunks, sizeof(*chunks)/sizeof(Chunk));
+        }
+    }
+
 }
 
 
@@ -44,6 +60,10 @@ void backup_file(const char *filename) {
 void write_restored_file(const char *output_filename, Chunk *chunks, int chunk_count) {
     /*
     */
+
+
+
+
 }
 
 // Fonction pour restaurer une sauvegarde
