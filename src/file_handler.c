@@ -34,3 +34,9 @@ void list_files(const char *path){
   /* Implémenter la logique pour lister les fichiers présents dans un répertoire
   */
 }
+
+void copy_file(const char *src, const char * dest) {
+    /*Copie les fichiers d'une source à une autre
+     * Alexis si tu pouvait gérer les sous-dossier et que j'aurais juste à mettre le dossier parent en paramètre et qu'il copie tout les
+     * fichiers et sous-dossier en meme tempsd tu serais un amour*/
+}

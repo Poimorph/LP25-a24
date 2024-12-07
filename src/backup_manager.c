@@ -14,6 +14,38 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     *          backup_dir est le chemin vers le répertoire de sauvegarde
     */
 
+    struct stat stbuff;
+    //Checker si le dossier de backup existe
+    if (stat(backup_dir, &stbuff) == -1) {
+        //Si il n'existe pas on le créer
+        mkdir(backup_dir);
+    }
+
+    char path[1024];
+    snprintf(path, sizeof(path), "%s/.backup_log", backup_dir);
+
+    if (stat(path, &stbuff) == -1) {
+        char completeBackup[1024];
+        snprintf(completeBackup, sizeof(completeBackup), "%s/%s", backup_dir, "fullbackup");
+        mkdir("fullbackup");
+        copy_file(source_dir, completeBackup);
+
+    } else {
+        char incrementalBackup[1024];
+        //Je calcule le nombre d'élément présent dans le dossier, cela nous donneras à combien de backup nous serons (si on retir le fichier backup et le dossier de sauvegarde complète
+        DIR* dir = opendir(backup_dir);
+        struct dirent* dp;
+        int iteration = 0;
+        while ((dp = readdir(dir)) != NULL) {
+            iteration++;
+        }
+
+        snprintf(incrementalBackup, sizeof(incrementalBackup), "%s/backup%d", backup_dir, iteration-1);
+        mkdir(incrementalBackup);
+
+
+    }
+
 
 
 }
