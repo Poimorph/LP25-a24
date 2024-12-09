@@ -57,8 +57,6 @@ void copy_file(const char *src, const char * dest) {
         snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
 	    char destpath[1024];
 	    snprintf(destpath,sizeof(destpath), "%s/%s",dest, entry->d_name);
-        // Afficher l'entrée avec une indentation basée sur la profondeur
-        printf("%s, %s \n",fullpath,destpath);
 
         // Si l'entrée est un répertoire, explorer récursivement
         if (entry->d_type == DT_DIR) {
