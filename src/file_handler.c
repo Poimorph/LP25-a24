@@ -63,7 +63,7 @@ void copy_file(const char *src, const char * dest) {
         // Si l'entrée est un répertoire, explorer récursivement
         if (entry->d_type == DT_DIR) {
 	    mkdir(destpath, 0777);  // Créer le dossier 
-            list_directory_recursive(fullpath, dest); // Recherche les sous dossier et fichiers
+            copy_file(fullpath, dest); // Recherche les sous dossier et fichiers
         }
 	else{ // Si fichier, on copie le contenue du fichier source dans le fichier destination que l'on crée en meme temps 
 	    FILE *d =fopen(destpath,"w");
