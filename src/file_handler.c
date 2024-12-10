@@ -54,7 +54,7 @@ void copy_file(const char *src, const char * dest) {
 
         // Construire le chemin complet de l'entrée
         char fullpath[1024];
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", src, entry->d_name);
 	    char destpath[1024];
 	    snprintf(destpath,sizeof(destpath), "%s/%s",dest, entry->d_name);
 
