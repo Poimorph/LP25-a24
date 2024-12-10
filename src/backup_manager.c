@@ -30,6 +30,13 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         mkdir("fullbackup");
         copy_file(source_dir, completeBackup);
 
+        FILE* backup_log = fopen(path, "w");
+
+        char ** listOfPath = list_files(source_dir);
+
+
+
+
     } else {
         char incrementalBackup[1024];
         //Je calcule le nombre d'élément présent dans le dossier, cela nous donneras à combien de backup nous serons (si on retir le fichier backup et le dossier de sauvegarde complète
@@ -39,9 +46,13 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         while ((dp = readdir(dir)) != NULL) {
             iteration++;
         }
-
+        closedir(dir);
         snprintf(incrementalBackup, sizeof(incrementalBackup), "%s/backup%d", backup_dir, iteration-1);
         mkdir(incrementalBackup);
+        copy_file(source_dir, incrementalBackup);
+
+        //Je copie le répértoire entier, ensuite pour chaque ficher je compare à la version originale, si c'est la même je supprime le fichier. Si le fichier est différent je le transforme en fichier backup.
+
 
 
     }
@@ -54,10 +65,20 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_count) {
     /*
     */
-
+    Chunk chunk[chunk_count];
     for (int i = 0; i < chunk_count; i++) {
-        write_file(output_filename, chunks[i].data, sizeof(chunks[i].data));
+        chunk[i] = chunks[i];
     }
+    FILE* file = fopen(output_filename, "wb");
+    if (!file) {
+        perror("Cannto create %s\n");
+    }
+    else {
+        fwrite(chunk, sizeof(Chunk), chunk_count, file);
+    }
+    fclose(file);
+
+
 
 }
 
@@ -68,9 +89,9 @@ void backup_file(const char *filename) {
     */
 
     //Création des éléments pour la récéption des données
-    Chunk* chunks = malloc(sizeof(Chunk));
-    Md5Entry* entry  = malloc(sizeof(Md5Entry));
-    FILE* file = fopen(filename, "r");
+    Chunk* chunks = malloc(sizeof(Chunk)*1024);
+    Md5Entry* entry  = malloc(sizeof(Md5Entry)*1024);
+    FILE* file = fopen(filename, "rb");
     //Si le fichier n'éxiste pas
     if (!file) {
         printf("Could not open file %s\n", filename);
@@ -81,7 +102,7 @@ void backup_file(const char *filename) {
         fclose(file);
         if (chunks != NULL) {
             //On écrit les chunks uniques dans le fichier de backup
-            write_backup_file(filename,chunks, sizeof(*chunks)/sizeof(Chunk));
+            write_backup_file(filename,chunks, 1024);
         }
     }
 
@@ -90,10 +111,19 @@ void backup_file(const char *filename) {
 
 // Fonction permettant la restauration du fichier backup via le tableau de chunk
 void write_restored_file(const char *output_filename, Chunk *chunks, int chunk_count) {
-    /*
+    /*Ne fonctionne pas
     */
 
+    FILE* file = fopen(output_filename, "wb");
+    if (!file) {
+        perror("Cannot open file");
 
+    } else {
+
+        Chunk **chunk = &chunks;
+        undeduplicate_file(file, chunk, &chunk_count);
+        fwrite(*chunk, sizeof(Chunk), chunk_count, file);
+    }
 
 
 }

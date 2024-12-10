@@ -30,8 +30,8 @@ void write_log_element(log_element *elt, FILE *logfile){
    */
 }
 
-void list_files(const char *path){
-  /* Implémenter la logique pour lister les fichiers présents dans un répertoire
+char ** list_files(const char *path){
+  /* Implémenter la logique pour lister les fichiers présents dans un répertoire, récursive elle doit rencoyer un tableau à double dimension des chemins des différents fichiers
   */
 }
 
