@@ -63,7 +63,10 @@ void copy_file(const char *src, const char * dest) {
 
         // Si l'entrée est un répertoire, explorer récursivement
         struct stat *entry_stat;
-        stat(fullpath,entry_stat);
+        if(stat(fullpath,entry_stat)==-1){
+            perror("Erreur lors de l'appel à stat");
+            continue;
+        }
         
         if (S_ISDIR(entry_stat->st_mode)) {
 	    mkdir(destpath, 0777);  // Créer le dossier 
