@@ -79,6 +79,9 @@ void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     */
 }
 
+void compute_md5_entire_file(FILE* file, unsigned char *md5_out) {
+
+}
 
 // Fonction permettant de charger un fichier dédupliqué en table de chunks
 // en remplaçant les références par les données correspondantes

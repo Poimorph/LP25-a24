@@ -30,8 +30,10 @@ void write_log_element(log_element *elt, FILE *logfile){
    */
 }
 
-char ** list_files(const char *path){
-  /* Implémenter la logique pour lister les fichiers présents dans un répertoire, récursive elle doit rencoyer un tableau à double dimension des chemins des différents fichiers
+char ** list_files(const char *path, int * nbrOfFiles){
+  /* Implémenter la logique pour lister les fichiers présents dans un répertoire, récursive elle doit rencoyer un tableau à double
+   * dimension des chemins des différents fichiers
+   * Mettre dans le paramètre nbrOfFiles le nombres d'élément dans la chaine à retourner.
   */
 }
 

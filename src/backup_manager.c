@@ -8,6 +8,8 @@
 #include <time.h>
 #include <sys/stat.h>
 
+
+
 // Fonction pour créer une nouvelle sauvegarde complète puis incrémentale
 void create_backup(const char *source_dir, const char *backup_dir) {
     /* @param: source_dir est le chemin vers le répertoire à sauvegarder
@@ -32,7 +34,21 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
         FILE* backup_log = fopen(path, "w");
 
-        char ** listOfPath = list_files(source_dir);
+        int nbrOfFiles = 0;
+        char ** listOfPath = list_files(source_dir, &nbrOfFiles);
+
+        for (int i = 0; i < nbrOfFiles; i++) {
+            log_element *log;
+            log->path = listOfPath[i];
+            time_t t = time(NULL);
+            struct tm tm = *localtime(&t);
+            char date[1024];
+            snprintf(date, sizeof(date), "%d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+            log->date = date;
+
+        }
+
+
 
 
 
@@ -123,6 +139,7 @@ void write_restored_file(const char *output_filename, Chunk *chunks, int chunk_c
         Chunk **chunk = &chunks;
         undeduplicate_file(file, chunk, &chunk_count);
         fwrite(*chunk, sizeof(Chunk), chunk_count, file);
+
     }
 
 
