@@ -20,7 +20,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     //Checker si le dossier de backup existe
     if (stat(backup_dir, &stbuff) == -1) {
         //Si il n'existe pas on le créer
-        mkdir(backup_dir);
+        mkdir(backup_dir,0777);
     }
 
     char path[1024];
@@ -29,7 +29,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     if (stat(path, &stbuff) == -1) {
         char completeBackup[1024];
         snprintf(completeBackup, sizeof(completeBackup), "%s/%s", backup_dir, "fullbackup");
-        mkdir("fullbackup");
+        mkdir(completeBackup,0777);
         copy_file(source_dir, completeBackup);
 
         FILE* backup_log = fopen(path, "w");
@@ -60,11 +60,14 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         struct dirent* dp;
         int iteration = 0;
         while ((dp = readdir(dir)) != NULL) {
+            if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) {
+                continue;
+            }   
             iteration++;
         }
         closedir(dir);
         snprintf(incrementalBackup, sizeof(incrementalBackup), "%s/backup%d", backup_dir, iteration-1);
-        mkdir(incrementalBackup);
+        mkdir(incrementalBackup,0777);
         copy_file(source_dir, incrementalBackup);
 
         //Je copie le répértoire entier, ensuite pour chaque ficher je compare à la version originale, si c'est la même je supprime le fichier. Si le fichier est différent je le transforme en fichier backup.

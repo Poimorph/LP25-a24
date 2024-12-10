@@ -99,6 +99,10 @@ void add_md5(Md5Entry *hash_table, unsigned char *md5, int index) {
 
 unsigned char *md5_file(FILE *file){
     unsigned char md5[MD5_DIGEST_LENGTH];
+    if (!file) {
+        fprintf(stderr, "Fichier invalide pour le calcul du MD5\n");
+        return NULL;
+    }
 
 }
 
@@ -110,9 +114,6 @@ void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     */
 }
 
-void compute_md5_entire_file(FILE* file, unsigned char *md5_out) {
-
-}
 
 // Fonction permettant de charger un fichier dédupliqué en table de chunks
 // en remplaçant les références par les données correspondantes
