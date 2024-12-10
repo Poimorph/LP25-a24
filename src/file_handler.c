@@ -3,6 +3,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <sys/stat.h>
 #include "file_handler.h"
 #include "deduplication.h"
 
@@ -36,16 +37,16 @@ char ** list_files(const char *path){
 }
 
 void copy_file(const char *src, const char * dest) {
-    /*Copie les fichiers d'une source à une autre
+    /*C opie les fichiers d'une source à une autre
      * Alexis si tu pouvait gérer les sous-dossier et que j'aurais juste à mettre le dossier parent en paramètre et qu'il copie tout les
      * fichiers et sous-dossier en meme tempsd tu serais un amour*/
     struct dirent *entry;
-    DIR *dp = opendir(path);
+    DIR *dp = opendir(src);
     if (dp == NULL) { 
         perror("Erreur lors de l'ouverture du répertoire");
         return;
     }
-
+    
     while ((entry = readdir(dp)) != NULL) {
         // Ignorer les entrées "." et ".."
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
@@ -59,7 +60,10 @@ void copy_file(const char *src, const char * dest) {
 	    snprintf(destpath,sizeof(destpath), "%s/%s",dest, entry->d_name);
 
         // Si l'entrée est un répertoire, explorer récursivement
-        if (entry->d_type == DT_DIR) {
+        struct stat *entry_stat;
+        stat(fullpath,entry_stat);
+        
+        if (S_ISDIR(entry_stat->st_mode)) {
 	    mkdir(destpath, 0777);  // Créer le dossier 
             copy_file(fullpath, destpath); // Recherche les sous dossier et fichiers
         }
@@ -76,4 +80,4 @@ void copy_file(const char *src, const char * dest) {
 }
 }
 
-}
+
