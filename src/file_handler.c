@@ -31,11 +31,84 @@ void write_log_element(log_element *elt, FILE *logfile){
    */
 }
 
-char ** list_files(const char *path, int * nbrOfFiles){
-  /* Implémenter la logique pour lister les fichiers présents dans un répertoire, récursive elle doit rencoyer un tableau à double
-   * dimension des chemins des différents fichiers
-   * Mettre dans le paramètre nbrOfFiles le nombres d'élément dans la chaine à retourner.
-  */
+// Structure pour stocker une liste dynamique de chemins
+typedef struct {
+    char **paths;    // Tableau de chaînes représentant les chemins
+    int count;       // Nombre actuel de chemins dans la liste
+    int capacity;    // Capacité actuelle du tableau
+} PathList;
+
+// Fonction pour créer une nouvelle liste de chemins
+PathList *create_pathlist() {
+    PathList *list = malloc(sizeof(PathList));
+    list->paths = malloc(10 * sizeof(char *)); // Initialisation avec une capacité de 10
+    list->count = 0;
+    list->capacity = 10;
+    return list;
+}
+
+// Fonction pour ajouter un chemin à la liste dynamique
+void add_path(PathList *list, const char *path) {
+    // Si la liste est pleine, doubler sa capacité
+    if (list->count >= list->capacity) {
+        list->capacity *= 2;
+        list->paths = realloc(list->paths, list->capacity * sizeof(char *));
+    }
+    // Ajouter le chemin et incrémenter le compteur
+    list->paths[list->count] = strdup(path);
+    list->count++;
+}
+
+// Fonction pour libérer la mémoire allouée à la liste de chemins
+void free_pathlist(PathList *list) {
+    for (int i = 0; i < list->count; i++) {
+        free(list->paths[i]); // Libérer chaque chemin
+    }
+    free(list->paths); // Libérer le tableau de chemins
+    free(list); // Libérer la structure
+}
+
+// Fonction pour parcourir un répertoire et récupérer tous les chemins
+PathList *list_files(const char *directory) {
+    PathList *list = create_pathlist(); // Créer une nouvelle liste
+    struct dirent *entry;
+    DIR *dp = opendir(directory);
+
+    if (dp == NULL) {
+        perror("opendir"); // Afficher une erreur si le répertoire ne peut pas être ouvert
+        free_pathlist(list);
+        return NULL;
+    }
+
+    while ((entry = readdir(dp)) != NULL) {
+        // Ignorer les entrées "." et ".."
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        // Construire le chemin complet de l'entrée
+        char path[1024];
+        snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name);
+
+        // Ajouter le chemin à la liste
+        add_path(list, path);
+
+        // Vérifier si l'entrée est un répertoire
+        struct stat info;
+        if (stat(path, &info) == 0 && S_ISDIR(info.st_mode)) {
+            // Appeler récursivement list_directory pour les sous-répertoires
+            PathList *sublist = list_directory(path);
+            if (sublist) {
+                // Ajouter les chemins du sous-répertoire à la liste principale
+                for (int i = 0; i < sublist->count; i++) {
+                    add_path(list, sublist->paths[i]);
+                }
+                free_pathlist(sublist); // Libérer la sous-liste
+            }
+        }
+    }
+
+    closedir(dp); // Fermer le répertoire
+    return list;
 }
 
 void copy_file(const char *src, const char * dest) {
