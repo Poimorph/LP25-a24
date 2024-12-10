@@ -57,13 +57,11 @@ void copy_file(const char *src, const char * dest) {
         snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
 	    char destpath[1024];
 	    snprintf(destpath,sizeof(destpath), "%s/%s",dest, entry->d_name);
-        // Afficher l'entrée avec une indentation basée sur la profondeur
-        printf("%s, %s \n",fullpath,destpath);
 
         // Si l'entrée est un répertoire, explorer récursivement
         if (entry->d_type == DT_DIR) {
 	    mkdir(destpath, 0777);  // Créer le dossier 
-            list_directory_recursive(fullpath, dest); // Recherche les sous dossier et fichiers
+            copy_file(fullpath, destpath); // Recherche les sous dossier et fichiers
         }
 	else{ // Si fichier, on copie le contenue du fichier source dans le fichier destination que l'on crée en meme temps 
 	    FILE *d =fopen(destpath,"w");
