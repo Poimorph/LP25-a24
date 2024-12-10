@@ -42,7 +42,7 @@ void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table);
 // en remplaçant les références par les données correspondantes
 void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count);
 // Fonction pour calculer le MD5 d'un fichier
-unsigned char md5_file(FILE *file); 
+unsigned char *md5_file(FILE *file); 
 
 #endif // DEDUPLICATION_H
 

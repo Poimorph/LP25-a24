@@ -97,8 +97,9 @@ void add_md5(Md5Entry *hash_table, unsigned char *md5, int index) {
     hash_table[hash_index].index = index;
 }
 
-unsigned char md5_file(FILE *file){
-    
+unsigned char *md5_file(FILE *file){
+    unsigned char md5[MD5_DIGEST_LENGTH];
+
 }
 
 // Fonction pour convertir un fichier non dédupliqué en tableau de chunks
