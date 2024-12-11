@@ -1,11 +1,27 @@
-#include "deduplication.h"
-#include "file_handler.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <openssl/md5.h>
 #include <openssl/evp.h>
 #include <dirent.h>
+
+#define CHUNK_SIZE 4096
+
+// Taille de la table de hachage qui contiendra les chunks
+// dont on a déjà calculé le MD5 pour effectuer les comparaisons
+#define HASH_TABLE_SIZE 1000
+
+// Structure pour un chunk
+typedef struct {
+    unsigned char md5[MD5_DIGEST_LENGTH]; // MD5 du chunk
+    void *data; // Données du chunk
+} Chunk;
+
+// Table de hachage pour stocker les MD5 et leurs index
+typedef struct {
+    unsigned char md5[MD5_DIGEST_LENGTH];
+    int index;
+} Md5Entry;
 
 
 // Fonction de hachage MD5 pour l'indexation
@@ -21,14 +37,13 @@ unsigned int hash_md5(unsigned char *md5) {
 
 // Fonction pour calculer le MD5 d'un chunk en utilisant OpenSSL EVP
 void compute_md5(void *data, size_t len, unsigned char *md5_out) {
-    /* @param: data     - données d'entrée
-     *         len      - taille des données
-     *         md5_out  - buffer de sortie (doit être au moins MD5_DIGEST_LENGTH octets)
+    /* @param: data - données d'entrée
+     *         len - taille des données
+     *         md5_out - buffer de sortie (doit être au moins MD5_DIGEST_LENGTH octets)
      */
 
-    // Si les données ou la sortie sont nulles, on sort de la fonction
     if (data == NULL || md5_out == NULL) {
-        return; 
+        return; // Si les données ou la sortie sont nulles, on sort de la fonction
     }
 
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
@@ -59,15 +74,14 @@ void compute_md5(void *data, size_t len, unsigned char *md5_out) {
     }
 
     // Libération du contexte
-    // md5_out contient maintenant le hachage MD5 des données
     EVP_MD_CTX_free(ctx);
+    // md5_out contient maintenant le hachage MD5 des données
 }
 
 // Fonction permettant de chercher un MD5 dans la table de hachage
 int find_md5(Md5Entry *hash_table, unsigned char *md5) {
     /* @param: hash_table   est le tableau de hachage qui contient les MD5 et l'index des chunks unique
      *         md5          est le md5 du chunk dont on veut déterminer l'unicité
-     * 
      * @return: retourne l'index s'il trouve le md5 dans le tableau et -1 sinon
      */
 
@@ -97,29 +111,37 @@ void add_md5(Md5Entry *hash_table, unsigned char *md5, int index) {
     hash_table[hash_index].index = index;
 }
 
-unsigned char *md5_file(FILE *file){
-    unsigned char md5[MD5_DIGEST_LENGTH];
-    if (!file) {
-        fprintf(stderr, "Fichier invalide pour le calcul du MD5\n");
-        return NULL;
-    }
+int main() {
+    // Données d'exemple
+    const char *data1 = "Ceci est un chunk de données."; // Chunk 1
+    const char *data2 = "Ceci est un autre chunk de données."; // Chunk 2
+    const char *data3 = "Ceci est un chunk de données."; // Identique à Chunk 1
 
-}
+    // Calculer les MD5 des chunks
+    unsigned char md5_1[MD5_DIGEST_LENGTH];
+    unsigned char md5_2[MD5_DIGEST_LENGTH];
+    unsigned char md5_3[MD5_DIGEST_LENGTH];
 
-// Fonction pour convertir un fichier non dédupliqué en tableau de chunks
-void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
-    /* @param:  file        est le fichier qui sera dédupliqué
-    *           chunks      est le tableau de chunks initialisés qui contiendra les chunks issu du fichier
-    *           hash_table  est le tableau de hachage qui contient les MD5 et l'index des chunks unique
-    */
-}
+    compute_md5((void *)data1, strlen(data1), md5_1);
+    compute_md5((void *)data2, strlen(data2), md5_2);
+    compute_md5((void *)data3, strlen(data3), md5_3);
 
+    // Initialiser une table de hachage
+    Md5Entry hash_table[HASH_TABLE_SIZE] = {0};
 
-// Fonction permettant de charger un fichier dédupliqué en table de chunks
-// en remplaçant les références par les données correspondantes
-void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
-    /* @param: file         est le nom du fichier dédupliqué présent dans le répertoire de sauvegarde
-    *          chunks       représente le tableau de chunk qui contiendra les chunks restauré depuis filename
-    *          chunk_count  est un compteur du nombre de chunk restauré depuis le fichier filename
-    */
+    // Ajouter les MD5 à la table de hachage
+    add_md5(hash_table, md5_1, 0); // Ajouter le chunk 1 avec l'index 0
+    add_md5(hash_table, md5_2, 1); // Ajouter le chunk 2 avec l'index 1
+
+    // Tester la recherche dans la table de hachage
+    int index1 = find_md5(hash_table, md5_1); // Devrait trouver l'index 0
+    int index2 = find_md5(hash_table, md5_2); // Devrait trouver l'index 1
+    int index3 = find_md5(hash_table, md5_3); // Devrait aussi trouver l'index 0 (même données)
+
+    // Afficher les résultats
+    printf("Index du chunk 1 : %d\n", index1); // Doit afficher 0
+    printf("Index du chunk 2 : %d\n", index2); // Doit afficher 1
+    printf("Index du chunk 3 (identique au chunk 1) : %d\n", index3); // Doit afficher 0
+
+    return 0;
 }
