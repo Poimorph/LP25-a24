@@ -15,30 +15,36 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     /* @param: source_dir est le chemin vers le répertoire à sauvegarder
     *          backup_dir est le chemin vers le répertoire de sauvegarde
     */
-
+    printf("%s", backup_dir);
     struct stat stbuff;
     //Checker si le dossier de backup existe
-    if (stat(backup_dir, &stbuff) == -1) {
+
+
+    DIR* dir = opendir(backup_dir);
+    if (dir == NULL) {
         //Si il n'existe pas on le créer
         mkdir(backup_dir,0777);
     }
 
     char path[1024];
-    snprintf(path, sizeof(path), "%s/.backup_log", backup_dir);
+    snprintf(path, sizeof(path), "%s/.backup_log.txt", backup_dir);
+    stat(path, &stbuff);
+    FILE* backup = fopen(path, "r");
 
-    if (stat(path, &stbuff) == -1) {
+    if (!backup) {
+        fclose(backup);
         char completeBackup[1024];
-        snprintf(completeBackup, sizeof(completeBackup), "%s/%s", backup_dir, "fullbackup");
+        snprintf(completeBackup, sizeof(completeBackup), "%s/%s", backup_dir, "/fullbackup");
         mkdir(completeBackup,0777);
+        printf("lol");
         copy_file(source_dir, completeBackup);
-
+        printf("lol21");
         FILE* backup_log = fopen(path, "w");
-
 
         PathList *listOfPath = list_files(completeBackup);
 
         for (int i = 0; i < listOfPath->count; i++) {
-            log_element *log;
+            log_element *log = malloc(sizeof(log_element));
 
             char * token = strtok(listOfPath->paths[i], backup_dir);
             log->path = token;
@@ -47,11 +53,19 @@ void create_backup(const char *source_dir, const char *backup_dir) {
             char date[1024];
             snprintf(date, sizeof(date), "%d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
             log->date = date;
+            fwrite(log, sizeof(log_element), 1, backup_log);
+            free(log);
         }
+
+        fclose(backup_log);
+
+
+
 
 
 
     } else {
+        fclose(backup);
         char incrementalBackup[1024];
         //Je calcule le nombre d'élément présent dans le dossier, cela nous donneras à combien de backup nous serons (si on retir le fichier backup et le dossier de sauvegarde complète
         DIR* dir = opendir(backup_dir);
@@ -105,7 +119,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
                         deduplicate_file(file1, chunks, entry);
                         int m = 0;
 
-                        write_backup_file(file1, chunks, );
+                        // write_backup_file(file1, chunks, );
                     }
                 }
             }

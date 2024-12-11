@@ -112,11 +112,12 @@ void copy_file(const char *src, const char * dest) {
      * fichiers et sous-dossier en meme tempsd tu serais un amour*/
     struct dirent *entry;
     DIR *dp = opendir(src);
-    if (dp == NULL) { 
+    if (dp == NULL) {
+
         perror("Erreur lors de l'ouverture du répertoire");
         return;
     }
-    
+
     while ((entry = readdir(dp)) != NULL) {
         // Ignorer les entrées "." et ".."
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
@@ -130,13 +131,14 @@ void copy_file(const char *src, const char * dest) {
 	    snprintf(destpath,sizeof(destpath), "%s/%s",dest, entry->d_name);
 
         // Si l'entrée est un répertoire, explorer récursivement
-        struct stat *entry_stat;
-        if(stat(fullpath,entry_stat)==-1){
+        struct stat entry_stat;
+
+        if(stat(fullpath,&entry_stat)==-1){
             perror("Erreur lors de l'appel à stat");
             continue;
         }
-        
-        if (S_ISDIR(entry_stat->st_mode)) {
+
+        if (S_ISDIR(entry_stat.st_mode)) {
 	    mkdir(destpath, 0777);  // Créer le dossier 
             copy_file(fullpath, destpath); // Recherche les sous dossier et fichiers
         }
@@ -152,5 +154,3 @@ void copy_file(const char *src, const char * dest) {
 	}
 }
 }
-
-

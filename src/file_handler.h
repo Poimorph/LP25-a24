@@ -2,6 +2,7 @@
 #define FILE_HANDLER_H
 
 #include <stdio.h>
+#include <openssl/md5.h>
 
 
 // Structure pour une ligne du fichier log
