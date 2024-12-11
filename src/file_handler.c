@@ -31,12 +31,7 @@ void write_log_element(log_element *elt, FILE *logfile){
    */
 }
 
-// Structure pour stocker une liste dynamique de chemins
-typedef struct {
-    char **paths;    // Tableau de chaînes représentant les chemins
-    int count;       // Nombre actuel de chemins dans la liste
-    int capacity;    // Capacité actuelle du tableau
-} PathList;
+
 
 // Fonction pour créer une nouvelle liste de chemins
 PathList *create_pathlist() {
@@ -96,7 +91,7 @@ PathList *list_files(const char *directory) {
         struct stat info;
         if (stat(path, &info) == 0 && S_ISDIR(info.st_mode)) {
             // Appeler récursivement list_directory pour les sous-répertoires
-            PathList *sublist = list_directory(path);
+            PathList *sublist = list_files(path);
             if (sublist) {
                 // Ajouter les chemins du sous-répertoire à la liste principale
                 for (int i = 0; i < sublist->count; i++) {

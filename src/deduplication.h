@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <openssl/md5.h>
 #include <dirent.h>
 
 // Taille d'un chunk (4096 octets)

@@ -2,7 +2,7 @@
 #define FILE_HANDLER_H
 
 #include <stdio.h>
-#include <openssl/md5.h>
+
 
 // Structure pour une ligne du fichier log
 typedef struct log_element{
@@ -15,15 +15,21 @@ typedef struct log_element{
 
 // Structure pour une liste de log représentant le contenu du fichier backup_log
 typedef struct {
-    log_element *head; // Début de la liste de log 
+    log_element *head; // Début de la liste de log
     log_element *tail; // Fin de la liste de log
 } log_t;
 
+// Structure pour stocker une liste dynamique de chemins
+typedef struct {
+    char **paths;    // Tableau de chaînes représentant les chemins
+    int count;       // Nombre actuel de chemins dans la liste
+    int capacity;    // Capacité actuelle du tableau
+} PathList;
 
 log_t read_backup_log(const char *logfile);
 void update_backup_log(const char *logfile, log_t *logs);
 void write_log_element(log_element *elt, FILE *logfile);
-char ** list_files(const char *path, int* nbrOfFiles);
+PathList *list_files(const char *directory);
 void copy_file(const char *src, const char *dest);
 
 #endif // FILE_HANDLER_H

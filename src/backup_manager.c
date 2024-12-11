@@ -34,22 +34,20 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
         FILE* backup_log = fopen(path, "w");
 
-        int nbrOfFiles = 0;
-        char ** listOfPath = list_files(source_dir, &nbrOfFiles);
 
-        for (int i = 0; i < nbrOfFiles; i++) {
+        PathList *listOfPath = list_files(completeBackup);
+
+        for (int i = 0; i < listOfPath->count; i++) {
             log_element *log;
-            log->path = listOfPath[i];
+
+            char * token = strtok(listOfPath->paths[i], backup_dir);
+            log->path = token;
             time_t t = time(NULL);
             struct tm tm = *localtime(&t);
             char date[1024];
             snprintf(date, sizeof(date), "%d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
             log->date = date;
-
         }
-
-
-
 
 
 
@@ -62,17 +60,56 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         while ((dp = readdir(dir)) != NULL) {
             if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) {
                 continue;
-            }   
+            }
             iteration++;
         }
         closedir(dir);
         snprintf(incrementalBackup, sizeof(incrementalBackup), "%s/backup%d", backup_dir, iteration-1);
         mkdir(incrementalBackup,0777);
-        copy_file(source_dir, incrementalBackup);
+
 
         //Je copie le répértoire entier, ensuite pour chaque ficher je compare à la version originale, si c'est la même je supprime le fichier. Si le fichier est différent je le transforme en fichier backup.
 
+        copy_file(source_dir, incrementalBackup);
+        PathList *list = list_files(incrementalBackup);
+        log_t logList = read_backup_log(path);
+        log_element *element = logList.head;
+        while (element != NULL) {
+            char * elementpath = element->path;
+            int isExisiting = 0;
+            for (int i = 0; i < list->count; i++) {
+                char * relativeIncrementalPath = strtok(list->paths[i], incrementalBackup);
+                int y = 0;
+                char relativeLastBackupPath[1024];
+                char * token = strtok(elementpath, "/");
 
+                while ((token = strtok(NULL, "/"))){
+                    if (relativeLastBackupPath[0] == '\0') {
+                        snprintf(relativeLastBackupPath, sizeof(relativeLastBackupPath), "%s/", token);
+                    }else {
+                        snprintf(relativeLastBackupPath, sizeof(relativeLastBackupPath), "%s/%s", relativeLastBackupPath, token);
+
+                    };
+                }
+                if (strcmp(relativeLastBackupPath, relativeIncrementalPath) == 0) {
+                    isExisiting = 1;
+                    FILE* file1 = fopen(list->paths[i], "rb");
+                    char backupfilePath[1024];
+                    snprintf(backupfilePath, sizeof(backupfilePath), "%s/%s", backup_dir, elementpath);
+                    FILE* file = fopen(backupfilePath, "rb");
+                    if (strcmp(md5_file(file1), element->md5) == 0) {
+                        remove(list->paths[i]);
+                    } else {
+                        Chunk * chunks;
+                        Md5Entry *entry;
+                        deduplicate_file(file1, chunks, entry);
+                        int m = 0;
+
+                        write_backup_file(file1, chunks, );
+                    }
+                }
+            }
+        }
 
     }
 
