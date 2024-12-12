@@ -122,7 +122,6 @@ void add_md5(Md5Entry *hash_table, unsigned char *md5, int index) {
 }
 
 unsigned char *md5_file(FILE *file){
-    unsigned char md5[MD5_DIGEST_LENGTH];
     if (!file) {
         fprintf(stderr, "Fichier invalide pour le calcul du MD5\n");
         return NULL;
@@ -178,44 +177,43 @@ unsigned char *md5_file(FILE *file){
 
 }
 
+/**
+ * @brief Fonction pour convertir un fichier non dédupliqué en tableau de chunks
+ * 
+ * @param file le fichier qui sera dédupliqué
+ * @param chunks le tableau de chunks initialisés qui contiendra les chunks issu du fichier
+ * @param hash_table le tableau de hachage qui contient les MD5 et l'index des chunks unique
+ * , Chunk *chunks, Md5Entry *hash_table
+ */
+void deduplicate_file(FILE *file){
+    // on détermine si le fichier est valide
+    if (!file) {
+        fprintf(stderr, "Erreur : Fichier invalide\n");
+        return NULL;}
+
+    // Déterminer la taille du fichier
+    if (fseek(file, 0, SEEK_END) != 0) {
+        fprintf(stderr, "Erreur : échec du déplacement à la fin du fichier\n");
+        return NULL;
+    }
+
+    long file_size = ftell(file);
+    if (file_size == -1) {
+        fprintf(stderr, "Erreur : échec de la récupération de la taille du fichier\n");
+        return NULL;
+    }
+
+    rewind(file); // Revenir au début du fichier
+    printf("%lu\n",file_size);
+
+}
 
 
 int main() {
-    // Données d'exemple
-    const char *data1 = "Ceci est un chunk de données."; // Chunk 1
-    const char *data2 = "Ceci est un autre chunk de données."; // Chunk 2
-    const char *data3 = "Ceci est un chunk de données."; // Identique à Chunk 1
-
-    // Calculer les MD5 des chunks
-    unsigned char md5_1[MD5_DIGEST_LENGTH];
-    unsigned char md5_2[MD5_DIGEST_LENGTH];
-    unsigned char md5_3[MD5_DIGEST_LENGTH];
-
-    compute_md5((void *)data1, strlen(data1), md5_1);
-    compute_md5((void *)data2, strlen(data2), md5_2);
-    compute_md5((void *)data3, strlen(data3), md5_3);
-
-    // Initialiser une table de hachage
-    Md5Entry hash_table[HASH_TABLE_SIZE] = {0};
-
-    // Ajouter les MD5 à la table de hachage
-    add_md5(hash_table, md5_1, 0); // Ajouter le chunk 1 avec l'index 0
-    add_md5(hash_table, md5_2, 1); // Ajouter le chunk 2 avec l'index 1
-
-    // Tester la recherche dans la table de hachage
-    int index1 = find_md5(hash_table, md5_1); // Devrait trouver l'index 0
-    int index2 = find_md5(hash_table, md5_2); // Devrait trouver l'index 1
-    int index3 = find_md5(hash_table, md5_3); // Devrait aussi trouver l'index 0 (même données)
-
-    // Afficher les résultats
-    printf("Index du chunk 1 : %d\n", index1); // Doit afficher 0
-    printf("Index du chunk 2 : %d\n", index2); // Doit afficher 1
-    printf("Index du chunk 3 (identique au chunk 1) : %d\n", index3); // Doit afficher 0
-
 
     FILE *file = fopen("src/example.txt", "rb");
     if (!file) {
-        printf("Erreur lors de l'ouverture du fichier");
+        perror("Erreur lors de l'ouverture du fichier");
         return 1;
     }
 
