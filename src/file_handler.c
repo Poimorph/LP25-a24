@@ -102,11 +102,26 @@ void update_backup_log(const char *logfile, log_t *logs){
 
 }
 
-void write_log_element(log_element *elt, FILE *logfile){
-  /* Implémenter la logique pour écrire un élément log de la liste chaînée log_element dans le fichier .backup_log
+void write_log_element( log_element *element, const char *logfile) {
+    /* Implémenter la logique pour écrire un élément log de la liste chaînée log_element dans le fichier .backup_log
    * @param: elt - un élément log à écrire sur une ligne
    *         logfile - le chemin du fichier .backup_log
    */
+	if (!element || !logfile) {
+        fprintf(stderr, "Paramètres invalides pour write_log_element.\n");
+        return;
+    }
+    FILE *file = fopen(logfile, "a"); // Ouvrir en mode ajout
+    if (!file) {
+        perror("Erreur lors de l'ouverture du fichier pour écriture");
+        return;
+    }
+    fprintf(file, "%s;", element->path);
+    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+        fprintf(file, "%02x", element->md5[i]);
+    }
+    fprintf(file, ";%s\n", element->date);
+    fclose(file);
 }
 
 
