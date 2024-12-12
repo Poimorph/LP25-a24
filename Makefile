@@ -1,12 +1,20 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -I./src -lcrypto
+CFLAGS = -Wall -Wextra -I./src
+
+# Flags des bibliothèques
+LDFLAGS = -lcrypto -lssl
+
 SRC = src/main.c src/file_handler.c src/deduplication.c src/backup_manager.c src/network.c
 OBJ = $(SRC:.c=.o)
+TARGET = cborgbackup
 
-all: cborgbackup
+all: $(TARGET)
 
-cborgbackup: $(OBJ)
-	$(CC) -o cborgbackup $(OBJ) -lcrypto
+$(TARGET): $(OBJ)
+	$(CC) -o $(TARGET) $(OBJ) $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJ) cborgbackup
+	rm -f $(OBJ) $(TARGET)
