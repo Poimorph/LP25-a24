@@ -8,12 +8,90 @@
 #include "deduplication.h"
 
 // Fonction permettant de lire un élément du fichier .backup_log
-log_t read_backup_log(const char *logfile){
-    /* Implémenter la logique pour la lecture d'une ligne du fichier ".backup_log"
+log_t *read_backup_log(const char *logfile) {
+	/* Implémenter la logique pour la lecture d'une ligne du fichier ".backup_log"
     * @param: logfile - le chemin vers le fichier .backup_log
     * @return: une structure log_t
     */
+	FILE *file = fopen(logfile, "r");
+    if (!file) {
+        perror("Erreur lors de l'ouverture du fichier");
+        return NULL;
+    }
+
+    log_t *log_list = malloc(sizeof(log_t));
+    if (!log_list) {
+        perror("Erreur lors de l'allocation de mémoire pour log_t");
+        fclose(file);
+        return NULL;
+    }
+    log_list->head = NULL;
+    log_list->tail = NULL;
+
+    char line[1024];
+    while (fgets(line, sizeof(line), file)) {
+        // Supprimer le saut de ligne final
+        line[strcspn(line, "\n")] = 0;
+
+        // Diviser la ligne en 3 parties : chemin, md5 et date
+        char *path = strtok(line, ";");
+        unsigned char *md5_str = strtok(NULL, ";");
+        char *date = strtok(NULL, ";");
+
+        if (!path || !md5_str || !date) {
+            fprintf(stderr, "Ligne invalide dans le fichier : %s\n", line);
+            continue;
+        }
+
+        // Créer un nouvel élément de log
+        log_element *new_element = malloc(sizeof(log_element));
+        if (!new_element) {
+            perror("Erreur lors de l'allocation de mémoire");
+            fclose(file);
+            return NULL;
+        }
+
+        new_element->path = strdup(path);
+        if (!new_element->path) {
+            perror("Erreur lors de la copie du chemin");
+            free(new_element);
+            fclose(file);
+            return NULL;
+        }
+
+	// Copie directe de la chaîne MD5 en tant que tableau de caractères
+        strncpy((char *)new_element->md5, md5_str, MD5_DIGEST_LENGTH);
+
+
+
+        new_element->date = strdup(date);
+        if (!new_element->date) {
+            perror("Erreur lors de la copie de la date");
+            free((char *)new_element->path);
+            free(new_element);
+            fclose(file);
+            return NULL;
+        }
+
+        // Ajouter à la liste chaînée
+        new_element->next = NULL;
+        new_element->prev = log_list->tail;
+        if (log_list->tail) {
+            log_list->tail->next = new_element;
+        } else {
+            log_list->head = new_element;
+        }
+        log_list->tail = new_element;
+    }
+
+    fclose(file);
+    return log_list;
 }
+
+
+
+
+
 
 // Fonction permettant de mettre à jour une ligne du fichier .backup_log
 void update_backup_log(const char *logfile, log_t *logs){
