@@ -92,6 +92,26 @@ void add_md5(Md5Entry *hash_table, unsigned char *md5, int index);
  * @param file le fichier qui sera dédupliqué
  * @param chunks le tableau de chunks initialisés qui contiendra les chunks issu du fichier
  * @param hash_table le tableau de hachage qui contient les MD5 et l'index des chunks unique 
+ * 
+ *  * @note 
+ * - La taille de chaque chunk est définie par la constante `HASH_TABLE_SIZE`.
+ * - Les buffers de données pour les chunks sont alloués dynamiquement. Il est de la responsabilité 
+ *   de l'appelant de libérer ces buffers après utilisation.
+ * 
+ * @warning Assurez-vous que le tableau `chunks` a une taille suffisante pour contenir tous les chunks 
+ *          uniques générés à partir du fichier.
+ * 
+ * @example
+ * ```c
+ * #define MAX_CHUNKS 1000
+ * Chunk chunks[MAX_CHUNKS];
+ * Md5Entry hash_table[HASH_TABLE_SIZE] = {0};
+ * FILE *file = fopen("example.txt", "rb");
+ * if (file) {
+ *     deduplicate_file(file, chunks, hash_table);
+ *     fclose(file);
+ * }
+ * ```
  */
 void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table);
 

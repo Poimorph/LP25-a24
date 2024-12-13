@@ -203,13 +203,7 @@ unsigned char *md5_file(FILE *file){
 
 }
 
-/**
- * @brief Fonction pour convertir un fichier non dédupliqué en tableau de chunks
- * 
- * @param file le fichier qui sera dédupliqué
- * @param chunks le tableau de chunks initialisés qui contiendra les chunks issu du fichier
- * @param hash_table le tableau de hachage qui contient les MD5 et l'index des chunks unique 
- */
+
 void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     // on détermine si le fichier est valide
     if (!file) {
@@ -229,8 +223,54 @@ void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     }
 
     rewind(file); // Revenir au début du fichier
-    printf("%lu\n",file_size);
+    
+    // Utiliser la constante HASH_TABLE_SIZE pour définir la taille d'un chunk
+    size_t chunk_count = (file_size + HASH_TABLE_SIZE - 1) / HASH_TABLE_SIZE; // Nombre de chunks nécessaires
 
+    for (size_t i = 0; i < chunk_count; i++) {
+        size_t bytes_to_read = HASH_TABLE_SIZE;
+        if (i == chunk_count - 1) { // Dernier chunk
+            bytes_to_read = file_size % HASH_TABLE_SIZE;
+            if (bytes_to_read == 0) bytes_to_read = HASH_TABLE_SIZE;
+        }
+
+        // Allouer un buffer pour le chunk
+        unsigned char *buffer = malloc(bytes_to_read);
+        if (!buffer) {
+            fprintf(stderr, "Erreur : Allocation mémoire pour le chunk\n");
+            return;
+        }
+
+        // Lire les données du chunk
+        size_t bytes_read = fread(buffer, 1, bytes_to_read, file);
+        if (bytes_read != bytes_to_read) {
+            fprintf(stderr, "Erreur : Lecture du chunk\n");
+            free(buffer);
+            return;
+        }
+
+        // Calculer le MD5 du chunk
+        unsigned char md5[MD5_DIGEST_LENGTH];
+        compute_md5(buffer, bytes_read, md5);
+
+        // Vérifier si le MD5 existe déjà dans la table de hachage
+        int existing_index = find_md5(hash_table, md5);
+        if (existing_index != -1) {
+            // Le chunk existe déjà, pas besoin de l'ajouter
+            printf("Chunk %zu est un duplicata de l'index %d\n", i, existing_index);
+            free(buffer);
+            continue;
+        }
+
+        // Ajouter le MD5 dans la table de hachage
+        add_md5(hash_table, md5, i);
+
+        // Remplir la structure Chunk
+        memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
+        chunks[i].data = buffer;
+
+        printf("Chunk %zu ajouté avec MD5\n", i);
+    }
 }
 
 

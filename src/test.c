@@ -185,7 +185,7 @@ unsigned char *md5_file(FILE *file){
  * @param hash_table le tableau de hachage qui contient les MD5 et l'index des chunks unique
  * , Chunk *chunks, Md5Entry *hash_table
  */
-void deduplicate_file(FILE *file){
+void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     // on détermine si le fichier est valide
     if (!file) {
         fprintf(stderr, "Erreur : Fichier invalide\n");
@@ -204,30 +204,111 @@ void deduplicate_file(FILE *file){
     }
 
     rewind(file); // Revenir au début du fichier
-    printf("%lu\n",file_size);
+    
+    // Utiliser la constante HASH_TABLE_SIZE pour définir la taille d'un chunk
+    size_t chunk_count = (file_size + HASH_TABLE_SIZE - 1) / HASH_TABLE_SIZE; // Nombre de chunks nécessaires
 
+    for (size_t i = 0; i < chunk_count; i++) {
+        size_t bytes_to_read = HASH_TABLE_SIZE;
+        if (i == chunk_count - 1) { // Dernier chunk
+            bytes_to_read = file_size % HASH_TABLE_SIZE;
+            if (bytes_to_read == 0) bytes_to_read = HASH_TABLE_SIZE;
+        }
+
+        // Allouer un buffer pour le chunk
+        unsigned char *buffer = malloc(bytes_to_read);
+        if (!buffer) {
+            fprintf(stderr, "Erreur : Allocation mémoire pour le chunk\n");
+            return;
+        }
+
+        // Lire les données du chunk
+        size_t bytes_read = fread(buffer, 1, bytes_to_read, file);
+        if (bytes_read != bytes_to_read) {
+            fprintf(stderr, "Erreur : Lecture du chunk\n");
+            free(buffer);
+            return;
+        }
+
+        // Calculer le MD5 du chunk
+        unsigned char md5[MD5_DIGEST_LENGTH];
+        compute_md5(buffer, bytes_read, md5);
+
+        // Vérifier si le MD5 existe déjà dans la table de hachage
+        int existing_index = find_md5(hash_table, md5);
+        if (existing_index != -1) {
+            // Le chunk existe déjà, pas besoin de l'ajouter
+            printf("Chunk %zu est un duplicata de l'index %d\n", i, existing_index);
+            free(buffer);
+            continue;
+        }
+
+        // Ajouter le MD5 dans la table de hachage
+        add_md5(hash_table, md5, i);
+
+        // Remplir la structure Chunk
+        memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
+        chunks[i].data = buffer;
+
+        printf("Chunk %zu ajouté avec MD5\n", i);
+    }
 }
 
+#define MAX_CHUNKS 1000 // Taille maximale du tableau de chunks
 
 int main() {
 
-    FILE *file = fopen("src/example.txt", "rb");
+     // Fichier de test
+    const char *test_file = "src/test_input.txt";
+
+    // Générer un fichier de test
+    FILE *file = fopen(test_file, "wb");
     if (!file) {
-        perror("Erreur lors de l'ouverture du fichier");
-        return 1;
+        fprintf(stderr, "Erreur : impossible de créer le fichier de test\n");
+        return EXIT_FAILURE;
+    }
+    
+    // Écrire des données dans le fichier (par exemple, un fichier de 5000 octets)
+    for (int i = 0; i < 5000; i++) {
+        fputc('A' + (i % 26), file); // Écriture de caractères séquentiels
+    }
+    fclose(file);
+
+    // Initialiser les structures nécessaires
+    Chunk chunks[MAX_CHUNKS] = {0}; // Tableau pour stocker les chunks uniques
+    Md5Entry hash_table[HASH_TABLE_SIZE] = {0}; // Table de hachage pour les MD5
+
+    // Ouvrir le fichier pour la déduplication
+    file = fopen(test_file, "rb");
+    if (!file) {
+        fprintf(stderr, "Erreur : impossible d'ouvrir le fichier de test\n");
+        return EXIT_FAILURE;
     }
 
-    unsigned char *md5 = md5_file(file);
-    fclose(file); 
+    // Appeler la fonction de déduplication
+    deduplicate_file(file, chunks, hash_table);
+    fclose(file);
 
-    if (md5) {
-        printf("MD5 du fichier : ");
-        for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-            printf("%02x", md5[i]);
+    // Afficher les résultats
+    printf("Chunks uniques détectés :\n");
+    for (int i = 0; i < MAX_CHUNKS && chunks[i].data != NULL; i++) {
+        printf("Chunk %d : ", i + 1);
+        for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
+            printf("%02x", chunks[i].md5[j]); // Afficher le MD5
         }
         printf("\n");
-        free(md5); 
     }
+
+    // Libérer la mémoire allouée pour les chunks
+    for (int i = 0; i < MAX_CHUNKS && chunks[i].data != NULL; i++) {
+        free(chunks[i].data);
+    }
+
+    // Supprimer le fichier de test
+    if (remove(test_file) != 0) {
+        fprintf(stderr, "Erreur : impossible de supprimer le fichier de test\n");
+    }
+
 
     return 0;
 }
