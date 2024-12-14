@@ -136,9 +136,7 @@ void update_backup_log(const log_element *element, const char *filename) {
                 // Le MD5 a changé, mettre à jour la ligne
                 fseek(file, pos - strlen(line) - 1, SEEK_SET);
                 fprintf(file, "%s;", element->path);
-                for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-                    fprintf(file, "%02x", element->md5[i]);
-                }
+		    fwrite(element->md5, 1, MD5_DIGEST_LENGTH, file);
                 fprintf(file, ";%s\n", element->date);
             }
             break;
@@ -149,9 +147,7 @@ void update_backup_log(const log_element *element, const char *filename) {
         // Ajouter le nouvel élément à la fin
         fseek(file, 0, SEEK_END);
         fprintf(file, "%s;", element->path);
-        for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-            fprintf(file, "%02x", element->md5[i]);
-        }
+	fwrite(element->md5, 1, MD5_DIGEST_LENGTH, file);
         fprintf(file, ";%s\n", element->date);
     }
 
@@ -174,9 +170,7 @@ void write_log_element( log_element *elt, const char *logfile) {
         return;
     }
     fprintf(file, "%s;", elt->path);
-    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-        fprintf(file, "%02x", elt->md5[i]);
-    }
+    fwrite(elt->md5, 1, MD5_DIGEST_LENGTH,file);
     fprintf(file, ";%s\n", elt->date);
     fclose(file);
 }
