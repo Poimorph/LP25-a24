@@ -9,6 +9,35 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+char * PathSplitting(char * completePath, char * repertoryPath) {
+    printf("%s\n", repertoryPath);
+    printf("%s\n", completePath);
+    char * result = malloc(sizeof(char) * 1024);
+    int length = strlen(repertoryPath);
+    for (int i = length; i <= strlen(completePath); i++) {
+        result[i - (length)] = completePath[i];
+    }
+    result[strlen(result)] = '\0';
+    return result;
+}
+
+char * shortFirstDelimiter(char * path) {
+    char * result = malloc(sizeof(char) * 1024);
+    int isPassed = 0;
+    int occurence = 0;
+
+    for (int i = 0; i < strlen(path); i++) {
+        if (path[i] == '/' && isPassed == 0) {
+            isPassed = 1;
+        } else if (isPassed) {
+            result[occurence] = path[i];
+            occurence++;
+        }
+    }
+    result[occurence] = '\0';
+    return result;
+}
+
 
 
 // Fonction pour créer une nouvelle sauvegarde complète puis incrémentale
@@ -106,51 +135,49 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
         copy_file(source_dir, incrementalBackup);
 
-        PathList *list = list_files(incrementalBackup);
+        PathList *CurrentFilelist = list_files(incrementalBackup);
         log_t *logList = read_backup_log(path);
-        log_element *element = logList->head;
+        log_element *BackupLogElement = logList->head;
         char incrementalfinalbackup[1024];
         snprintf(incrementalfinalbackup, sizeof(incrementalfinalbackup), "%s/", incrementalBackup);
-        while (element != NULL) {
-            char * elementpath = element->path;
+        while (BackupLogElement != NULL) {
+            char * Logelementpath = BackupLogElement->path;
             int isExisiting = 0;
-            for (int i = 0; i < list->count; i++) {
-
-                char *relativeincrementalpath[1024];
-                printf("%s\n", list->paths[i]);
-                printf("%s\n", incrementalfinalbackup);
-                strtok_r(list->paths[i], incrementalfinalbackup, relativeincrementalpath);
-                printf("d%s\n", *relativeincrementalpath);
-                return;
+            for (int i = 0; i < CurrentFilelist->count; i++) {
+                char * relative = PathSplitting(CurrentFilelist->paths[i], incrementalfinalbackup);
 
 
-                char relativeLastBackupPath[1024];
-                char * token = strtok(elementpath, "/");
 
-                while ((token = strtok(NULL, "/"))){
-                    if (relativeLastBackupPath[0] == '\0') {
-                        snprintf(relativeLastBackupPath, sizeof(relativeLastBackupPath), "%s/", token);
-                    }else {
-                        snprintf(relativeLastBackupPath, sizeof(relativeLastBackupPath), "%s/%s", relativeLastBackupPath, token);
 
-                    };
-                }
-                if (strcmp(relativeLastBackupPath, *relativeincrementalpath) == 0) {
+
+                char * relativeLogElement = shortFirstDelimiter(Logelementpath);
+                printf("%s|%s\n", relative, relativeLogElement);
+
+
+                //Si les fichiers sont les mêmes.
+                if (strcmp(relative, relativeLogElement) == 0) {
                     isExisiting = 1;
-                    FILE* file1 = fopen(list->paths[i], "rb");
+                    printf("lol");
+
+                    FILE* fileLocal = fopen(CurrentFilelist->paths[i], "rb");
                     char backupfilePath[1024];
-                    snprintf(backupfilePath, sizeof(backupfilePath), "%s/%s", backup_dir, elementpath);
-                    FILE* file = fopen(backupfilePath, "rb");
-                    if (strcmp(md5_file(file1), element->md5) == 0) {
-                        remove(list->paths[i]);
+                    snprintf(backupfilePath, sizeof(backupfilePath), "%s/%s", backup_dir, relativeLogElement);
+                    FILE* fileBackupLog = fopen(backupfilePath, "rb");
+                    unsigned char * md5 = md5_file(fileLocal);
+                    if (strcmp(md5, BackupLogElement->md5) == 0) {
+                        remove(CurrentFilelist->paths[i]);
+                        printf("has been removed");
                     } else {
                         Chunk * chunks;
                         Md5Entry *entry;
-                        int chunk_count = (int)deduplicate_file(file1, chunks, entry);
-
-                        write_backup_file(list->paths[i], chunks, chunk_count);
+                        int chunk_count = (int)deduplicate_file(fileLocal, chunks, entry);
+                        write_backup_file(CurrentFilelist->paths[i], chunks, chunk_count);
                     }
+                    free(relative);
+                    free(relativeLogElement);
+                    return;
                 }
+                return;
             }
         }
 
