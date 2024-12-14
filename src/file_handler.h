@@ -27,9 +27,9 @@ typedef struct {
     int capacity;    // Capacité actuelle du tableau
 } PathList;
 
-log_t read_backup_log(const char *logfile);
+log_t *read_backup_log(const char *logfile);
 void update_backup_log(const char *logfile, log_t *logs);
-void write_log_element(log_element *elt, FILE *logfile);
+void write_log_element(log_element *elt, const char *logfile);
 PathList *list_files(const char *directory);
 void copy_file(const char *src, const char *dest);
 

@@ -38,6 +38,8 @@ log_t *read_backup_log(const char *logfile) {
         unsigned char *md5_str = strtok(NULL, ";");
         char *date = strtok(NULL, ";");
 
+        
+
         if (!path || !md5_str || !date) {
             fprintf(stderr, "Ligne invalide dans le fichier : %s\n", line);
             continue;
@@ -106,9 +108,9 @@ void update_backup_log(const char *logfile, log_t *logs){
    * @param elt - un élément log à écrire sur une ligne
    * @param logfile - le chemin du fichier .backup_log
    */
-void write_log_element( log_element *element, const char *logfile) {
+void write_log_element( log_element *elt, const char *logfile) {
     
-	if (!element || !logfile) {
+	if (!elt || !logfile) {
         fprintf(stderr, "Paramètres invalides pour write_log_element.\n");
         return;
     }
@@ -117,11 +119,11 @@ void write_log_element( log_element *element, const char *logfile) {
         perror("Erreur lors de l'ouverture du fichier pour écriture");
         return;
     }
-    fprintf(file, "%s;", element->path);
+    fprintf(file, "%s;", elt->path);
     for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-        fprintf(file, "%02x", element->md5[i]);
+        fprintf(file, "%02x", elt->md5[i]);
     }
-    fprintf(file, ";%s\n", element->date);
+    fprintf(file, ";%s\n", elt->date);
     fclose(file);
 }
 
