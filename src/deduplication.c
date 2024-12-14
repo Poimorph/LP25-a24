@@ -149,27 +149,27 @@ void add_md5(Md5Entry *hash_table, unsigned char *md5, int index) {
  */
 unsigned char *md5_file(FILE *file){
     if (!file) {
-        fprintf(stderr, "Erreur : Fichier invalide pour le calcul du MD5\n");
+        perror("Erreur lors de l'ouverture du fichier");
         return NULL;
     }
     
     // Allouer un buffer pour le résultat MD5
     unsigned char *md5_result = malloc(MD5_DIGEST_LENGTH);
     if (!md5_result) {
-        fprintf(stderr, "Erreur : allocation mémoire pour le MD5\n");
+        perror("Erreur lors de l'allocation de mémoire pour md5_result");
         return NULL;
     }
 
     // Déterminer la taille du fichier
     if (fseek(file, 0, SEEK_END) != 0) {
-        fprintf(stderr, "Erreur : échec du déplacement à la fin du fichier\n");
+        perror("Erreur lors du parcours du fichier");
         free(md5_result);
         return NULL;
     }
 
     long file_size = ftell(file);
     if (file_size == -1) {
-        fprintf(stderr, "Erreur : échec de la récupération de la taille du fichier\n");
+        perror("Erreur lors de la récupération de la taille du fichier");
         free(md5_result);
         return NULL;
     }
@@ -179,7 +179,7 @@ unsigned char *md5_file(FILE *file){
     // Allouer un buffer pour lire le fichier
     unsigned char *file_buffer = malloc(file_size);
     if (!file_buffer) {
-        fprintf(stderr, "Erreur : allocation mémoire pour le fichier\n");
+        perror("Erreur lors de l'allocation de mémoire pour le fichier");
         free(md5_result);
         return NULL;
     }
@@ -187,7 +187,7 @@ unsigned char *md5_file(FILE *file){
     // Lire le fichier entier
     size_t bytes_read = fread(file_buffer, 1, file_size, file);
     if (bytes_read != (size_t)file_size) {
-        fprintf(stderr, "Erreur : lecture du fichier incomplète\n");
+        perror("Erreur lors de la lecture du fichier");
         free(file_buffer);
         free(md5_result);
         return NULL;
@@ -203,50 +203,63 @@ unsigned char *md5_file(FILE *file){
 
 }
 
-
-void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
+/**
+ * @brief Fonction pour convertir un fichier non dédupliqué en tableau de chunks
+ * 
+ * @param file le fichier qui sera dédupliqué
+ * @param chunks le tableau de chunks initialisés qui contiendra les chunks issu du fichier
+ * @param hash_table le tableau de hachage qui contient les MD5 et l'index des chunks unique 
+ * 
+ * @return size_t Nombre total de chunks traités (y compris les duplicatas). Retourne -1 en cas d'erreur.
+ * 
+ *  * @note 
+ * - La taille de chaque chunk est définie par la constante `HASH_TABLE_SIZE`.
+ * - Les buffers de données pour les chunks sont alloués dynamiquement. Il est de la responsabilité 
+ *   de l'appelant de libérer ces buffers après utilisation.
+ */
+size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     // on détermine si le fichier est valide
     if (!file) {
-        fprintf(stderr, "Erreur : Fichier invalide\n");
-        return NULL;}
+        perror("Erreur lors de l'ouverture du fichier");
+        return -1;}
 
     // Déterminer la taille du fichier
     if (fseek(file, 0, SEEK_END) != 0) {
-        fprintf(stderr, "Erreur : échec du déplacement à la fin du fichier\n");
-        return NULL;
+        perror("Erreur lors du parcours du fichier");
+        return -1;
     }
 
     long file_size = ftell(file);
     if (file_size == -1) {
-        fprintf(stderr, "Erreur : échec de la récupération de la taille du fichier\n");
-        return NULL;
+        perror("Erreur lors de la récupération de la taille du fichier");
+        return -1;
     }
 
     rewind(file); // Revenir au début du fichier
     
-    // Utiliser la constante HASH_TABLE_SIZE pour définir la taille d'un chunk
-    size_t chunk_count = (file_size + HASH_TABLE_SIZE - 1) / HASH_TABLE_SIZE; // Nombre de chunks nécessaires
-
+    
+    size_t chunk_count = (file_size + CHUNK_SIZE - 1) / CHUNK_SIZE; // Nombre de chunks nécessaires
+    
     for (size_t i = 0; i < chunk_count; i++) {
-        size_t bytes_to_read = HASH_TABLE_SIZE;
+        size_t bytes_to_read = CHUNK_SIZE;
         if (i == chunk_count - 1) { // Dernier chunk
-            bytes_to_read = file_size % HASH_TABLE_SIZE;
-            if (bytes_to_read == 0) bytes_to_read = HASH_TABLE_SIZE;
+            bytes_to_read = file_size % CHUNK_SIZE;
+            if (bytes_to_read == 0) bytes_to_read = CHUNK_SIZE;
         }
 
         // Allouer un buffer pour le chunk
         unsigned char *buffer = malloc(bytes_to_read);
         if (!buffer) {
-            fprintf(stderr, "Erreur : Allocation mémoire pour le chunk\n");
-            return;
+            perror("Erreur lors de l'allocation mémoire pour le chunk");
+            return -1;
         }
 
         // Lire les données du chunk
         size_t bytes_read = fread(buffer, 1, bytes_to_read, file);
         if (bytes_read != bytes_to_read) {
-            fprintf(stderr, "Erreur : Lecture du chunk\n");
+            perror("Erreur lors de la lecture du chunk");
             free(buffer);
-            return;
+            return -1;
         }
 
         // Calculer le MD5 du chunk
@@ -257,7 +270,6 @@ void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
         int existing_index = find_md5(hash_table, md5);
         if (existing_index != -1) {
             // Le chunk existe déjà, pas besoin de l'ajouter
-            printf("Chunk %zu est un duplicata de l'index %d\n", i, existing_index);
             free(buffer);
             continue;
         }
@@ -269,8 +281,8 @@ void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
         memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
         chunks[i].data = buffer;
 
-        printf("Chunk %zu ajouté avec MD5\n", i);
     }
+    return chunk_count;
 }
 
 
@@ -284,5 +296,9 @@ void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
  * @param chunk_count est un compteur du nombre de chunk restauré depuis le fichier filename
  */
 void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
-    
+    // on détermine si le fichier est valide
+    if (!file) {
+        perror("Erreur lors de l'ouverture du fichier");
+        return NULL;}
+
 }

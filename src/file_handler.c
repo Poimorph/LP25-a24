@@ -101,12 +101,13 @@ void update_backup_log(const char *logfile, log_t *logs){
   */
 
 }
-
-void write_log_element( log_element *element, const char *logfile) {
-    /* Implémenter la logique pour écrire un élément log de la liste chaînée log_element dans le fichier .backup_log
-   * @param: elt - un élément log à écrire sur une ligne
-   *         logfile - le chemin du fichier .backup_log
+/** 
+   * @brief Implémenter la logique pour écrire un élément log de la liste chaînée log_element dans le fichier .backup_log
+   * @param elt - un élément log à écrire sur une ligne
+   * @param logfile - le chemin du fichier .backup_log
    */
+void write_log_element( log_element *element, const char *logfile) {
+    
 	if (!element || !logfile) {
         fprintf(stderr, "Paramètres invalides pour write_log_element.\n");
         return;
