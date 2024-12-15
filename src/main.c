@@ -35,8 +35,8 @@ typedef struct {
 int main(int argc, char *argv[]) {
     // tests :
 
-    create_backup(argv[1], argv[2]);
-    
+    // create_backup(argv[1], argv[2]);
+    restore_backup("/home/vboxuser/CLionProjects/LP25-a24/src/dest/backup58", "/home/vboxuser/CLionProjects/LP25-a24/src/source");
     // Analyse des arguments de la ligne de commande
 
     // Implémentation de la logique de sauvegarde et restauration
