@@ -177,12 +177,15 @@ unsigned char *md5_file(FILE *file){
     rewind(file); // Revenir au début du fichier
 
     // Allouer un buffer pour lire le fichier
+
+
     unsigned char *file_buffer = malloc(file_size);
     if (!file_buffer) {
         perror("Erreur lors de l'allocation de mémoire pour le fichier");
         free(md5_result);
         return NULL;
     }
+
 
     // Lire le fichier entier
     size_t bytes_read = fread(file_buffer, 1, file_size, file);

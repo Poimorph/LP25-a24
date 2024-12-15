@@ -137,48 +137,63 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
         PathList *CurrentFilelist = list_files(incrementalBackup);
         log_t *logList = read_backup_log(path);
+
         log_element *BackupLogElement = logList->head;
         char incrementalfinalbackup[1024];
         snprintf(incrementalfinalbackup, sizeof(incrementalfinalbackup), "%s/", incrementalBackup);
-        while (BackupLogElement != NULL) {
-            char * Logelementpath = BackupLogElement->path;
+        for (int i = 0; i < CurrentFilelist->count; i++) {
             int isExisiting = 0;
-            for (int i = 0; i < CurrentFilelist->count; i++) {
-                char * relative = PathSplitting(CurrentFilelist->paths[i], incrementalfinalbackup);
-
-
-
-
-
+            BackupLogElement = logList->head;
+            char * relative = PathSplitting(CurrentFilelist->paths[i], incrementalfinalbackup);
+            while (BackupLogElement != NULL) {
+                char * Logelementpath = (char *)BackupLogElement->path;
                 char * relativeLogElement = shortFirstDelimiter(Logelementpath);
-                printf("%s|%s\n", relative, relativeLogElement);
-
-
+                printf("Local : %s| Backup_log : %s\n", relative, relativeLogElement);
                 //Si les fichiers sont les mêmes.
                 if (strcmp(relative, relativeLogElement) == 0) {
                     isExisiting = 1;
-                    printf("lol");
 
-                    FILE* fileLocal = fopen(CurrentFilelist->paths[i], "rb");
-                    char backupfilePath[1024];
-                    snprintf(backupfilePath, sizeof(backupfilePath), "%s/%s", backup_dir, relativeLogElement);
-                    FILE* fileBackupLog = fopen(backupfilePath, "rb");
-                    unsigned char * md5 = md5_file(fileLocal);
-                    if (strcmp(md5, BackupLogElement->md5) == 0) {
-                        remove(CurrentFilelist->paths[i]);
-                        printf("has been removed");
-                    } else {
-                        Chunk * chunks;
-                        Md5Entry *entry;
-                        int chunk_count = (int)deduplicate_file(fileLocal, chunks, entry);
-                        write_backup_file(CurrentFilelist->paths[i], chunks, chunk_count);
+                    struct stat statbuff;
+                    stat(CurrentFilelist->paths[i], &statbuff);
+                    if (S_ISREG(statbuff.st_mode)) {
+                        FILE* fileLocal = fopen(CurrentFilelist->paths[i], "rb");
+                        char backupfilePath[1024];
+                        snprintf(backupfilePath, sizeof(backupfilePath), "%s/%s", backup_dir, relativeLogElement);
+                        FILE* fileBackupLog = fopen(backupfilePath, "rb");
+
+
+                        unsigned char * md5 = md5_file(fileLocal);
+                        printf("%p\n", md5);
+                        printf("%s\n", (char*)BackupLogElement->md5);
+                        printf("%d\n", strcmp(md5, BackupLogElement->md5));
+                        return;
+                        if (strcmp(md5, BackupLogElement->md5) == 0) {
+                            remove(CurrentFilelist->paths[i]);
+                            printf("has been removed");
+                        } else {
+                            Chunk * chunks;
+                            Md5Entry *entry;
+                            int chunk_count = (int)deduplicate_file(fileLocal, chunks, entry);
+                            write_backup_file(CurrentFilelist->paths[i], chunks, chunk_count);
+                        }
+
                     }
-                    free(relative);
-                    free(relativeLogElement);
-                    return;
+
                 }
-                return;
+
+                free(relativeLogElement);
+                if (BackupLogElement == logList->tail) {
+                    BackupLogElement = NULL;
+                } else {
+                    BackupLogElement = BackupLogElement->next;
+                }
+
+
+
             }
+
+            free(relative);
+
         }
 
     }

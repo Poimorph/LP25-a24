@@ -32,18 +32,47 @@ log_t *read_backup_log(const char *logfile) {
     while (fgets(line, sizeof(line), file)) {
         // Supprimer le saut de ligne final
         line[strcspn(line, "\n")] = 0;
+        printf("%s\n", line);
+        char md5_str[1024];
+        char path[1024];
+        char date[1024];
 
+        int Inner = 0;
+        int md5Occurence = 0;
+        int pathOccurence = 0;
+        int dateOccurence = 0;
+
+        printf("%ld\n", strlen(line));
+        for (int i = 0; i < strlen(line); i++) {
+
+            if (line[i] == ';') {
+                Inner++;
+            } else if (Inner == 1) {
+                md5_str[md5Occurence] = line[i];
+                md5Occurence++;
+            } else if (Inner == 0) {
+                path[pathOccurence] = line[i];
+                pathOccurence++;
+            } else if (Inner == 2) {
+                date[dateOccurence] = line[i];
+                dateOccurence++;
+            }
+        }
+
+        md5_str[md5Occurence] = '\0';
+        path[pathOccurence] = '\0';
+        date[dateOccurence] = '\0';
         // Diviser la ligne en 3 parties : chemin, md5 et date
-        char *path = strtok(line, ";");
-        unsigned char *md5_str = strtok(NULL, ";");
-        char *date = strtok(NULL, ";");
 
-        
+        printf("%p\n", (unsigned char *)md5_str);
 
-        if (!path || !md5_str || !date) {
+        if (!path[0] || !date[0]) {
             fprintf(stderr, "Ligne invalide dans le fichier : %s\n", line);
             continue;
         }
+
+
+
 
         // Créer un nouvel élément de log
         log_element *new_element = malloc(sizeof(log_element));
@@ -62,8 +91,8 @@ log_t *read_backup_log(const char *logfile) {
         }
 
 	// Copie directe de la chaîne MD5 en tant que tableau de caractères
-        strncpy((char *)new_element->md5, md5_str, MD5_DIGEST_LENGTH);
-
+        strncpy((char *)new_element->md5, (char *)md5_str, MD5_DIGEST_LENGTH);
+        // new_element->md5 = md5_str;
 
 
         new_element->date = strdup(date);
@@ -87,6 +116,7 @@ log_t *read_backup_log(const char *logfile) {
     }
 
     fclose(file);
+    printf("%s\n", (char*)log_list->head->md5);
     return log_list;
 }
 
