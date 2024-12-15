@@ -279,19 +279,77 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
 }
 
-// Fonction permettant d'enregistrer dans fichier le tableau de chunk dédupliqué
+/**
+ * @brief Enregistre un tableau de chunks dédupliqués dans un fichier de sauvegarde.
+ * 
+ * @param output_filename Le nom du fichier où les données doivent être sauvegardées.
+ * @param chunks Le tableau de chunks à sauvegarder.
+ * @param chunk_count Le nombre total de chunks dans le tableau.
+ */
 void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_count) {
     /*
     */
-    FILE* file = fopen(output_filename, "wb");
-    if (!file) {
-        perror("Cannto create %s\n");
+    if (!output_filename || !chunks || chunk_count <= 0) {
+        fprintf(stderr, "Paramètres invalides pour write_backup_file\n");
+        return;
     }
-    else {
-        fwrite(chunks, sizeof(Chunk), chunk_count, file);
-    }
-    fclose(file);
 
+    FILE *file = fopen(output_filename, "wb");
+    if (!file) {
+        perror("Erreur lors de la création du fichier de sauvegarde");
+        return;
+    }
+
+    // Écrire le nombre total de chunks dans le fichier
+    if (fwrite(&chunk_count, sizeof(int), 1, file) != 1) {
+        perror("Erreur lors de l'écriture du compteur de chunks");
+        fclose(file);
+        return;
+    }
+
+    // Parcourir les chunks et enregistrer leurs données
+    for(int i=0;i<chunk_count;i++){
+        // Écriture du hash MD5
+        if (fwrite(chunks[i].md5, MD5_DIGEST_LENGTH, 1, file) != 1) {
+            perror("Erreur lors de l'écriture du MD5");
+            fclose(file);
+            return;
+        }
+
+        // Vérifier si le chunk contient des données réelles ou une référence
+        if ((intptr_t)chunks[i].data < chunk_count) {
+            // Chunk référencé : écrire une taille de données de 0 et l'index référencé
+            size_t data_size = 0;
+            int referenced_index = (int)(intptr_t)chunks[i].data;
+
+            
+            if (fwrite(&data_size, sizeof(size_t), 1, file) != 1 ||
+                fwrite(&referenced_index, sizeof(int), 1, file) != 1) {
+                perror("Erreur lors de l'écriture d'un chunk référencé");
+                fclose(file);
+                return;
+            }
+
+            // Write the index of the referenced chunk
+            if (fwrite(&referenced_index, sizeof(int), 1, file) != 1) {
+                perror("Error writing referenced chunk index");
+                fclose(file);
+                return;
+            }
+        } else {
+            // Chunk avec des données réelles : écrire la taille et les données
+            size_t data_size = strlen((char *)chunks[i].data) + 1; // Inclure le caractère nul
+            if (fwrite(&data_size, sizeof(size_t), 1, file) != 1 ||
+                fwrite(chunks[i].data, data_size, 1, file) != 1) {
+                perror("Erreur lors de l'écriture d'un chunk réel");
+                fclose(file);
+                return;
+            }
+        }
+
+    }
+    
+    fclose(file);
 }
 
 
@@ -385,7 +443,7 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
         printf("complete path : %s\n", completePath);
         //Je détermine si le fichier fait partie de la sauvegarde complète
         char restorePath[1024];
-        char * temp3 = shortFirstDelimiter((char*)log->path)
+        char * temp3 = shortFirstDelimiter((char*)log->path);
         snprintf(restorePath, sizeof(restorePath), "%s/%s", restore_dir, shortFirstDelimiter((char*)log->path));
         if (log->path[0] == 'f') {
             struct stat statbuff;

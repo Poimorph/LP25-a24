@@ -231,7 +231,8 @@ unsigned char *md5_file(FILE *file){
  * @return size_t Nombre total de chunks traités (y compris les duplicatas). Retourne -1 en cas d'erreur.
  * 
  *  * @note 
- * - La taille de chaque chunk est définie par la constante `HASH_TABLE_SIZE`.
+ * - La taille de chaque chunk est définie par la constante `CHUNK_SIZE`.
+ * 
  * - Les buffers de données pour les chunks sont alloués dynamiquement. Il est de la responsabilité 
  *   de l'appelant de libérer ces buffers après utilisation.
  */
@@ -257,9 +258,18 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     
     
     size_t chunk_count = (file_size + CHUNK_SIZE - 1) / CHUNK_SIZE; // Nombre de chunks nécessaires
+
+    realloc(chunks,sizeof(Chunk)*chunk_count);
+
+    if(!chunks){
+        perror("pb de reallocation");
+        return -1;
+
+    }
     
     for (size_t i = 0; i < chunk_count; i++) {
         size_t bytes_to_read = CHUNK_SIZE;
+
         if (i == chunk_count - 1) { // Dernier chunk
             bytes_to_read = file_size % CHUNK_SIZE;
             if (bytes_to_read == 0) bytes_to_read = CHUNK_SIZE;
@@ -269,6 +279,7 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
         unsigned char *buffer = malloc(bytes_to_read);
         if (!buffer) {
             perror("Erreur lors de l'allocation mémoire pour le chunk");
+            free(buffer);
             return -1;
         }
 
@@ -280,24 +291,21 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
             return -1;
         }
 
+
         // Calculer le MD5 du chunk
         unsigned char md5[MD5_DIGEST_LENGTH];
         compute_md5(buffer, bytes_read, md5);
 
-        // Ajouter le MD5 dans la table de hachage
-        add_md5(hash_table, md5, i);
 
         // Vérifier si le MD5 existe déjà dans la table de hachage
         int existing_index = find_md5(hash_table, md5);
-        if (existing_index != -1) {
-            // Le chunk existe déjà, pas besoin de l'ajouter
-            free(buffer);
-            continue;
-        }
+       
 
         if (existing_index == -1) {
             memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
             chunks[i].data = buffer;
+            // Ajouter le MD5 dans la table de hachage
+            add_md5(hash_table, md5, i);
         } else {
             chunks[i].data = (void *)(intptr_t)existing_index; // Stocker l'indice du chunk existant dans data
             memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
@@ -309,6 +317,78 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     return chunk_count;
 }
 
+/**
+ * @brief Enregistre un tableau de chunks dédupliqués dans un fichier de sauvegarde.
+ * 
+ * @param output_filename Le nom du fichier où les données doivent être sauvegardées.
+ * @param chunks Le tableau de chunks à sauvegarder.
+ * @param chunk_count Le nombre total de chunks dans le tableau.
+ */
+void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_count) {
+    /*
+    */
+    if (!output_filename || !chunks || chunk_count <= 0) {
+        fprintf(stderr, "Paramètres invalides pour write_backup_file\n");
+        return;
+    }
+
+    FILE *file = fopen(output_filename, "wb");
+    if (!file) {
+        perror("Erreur lors de la création du fichier de sauvegarde");
+        return;
+    }
+
+    // Écrire le nombre total de chunks dans le fichier
+    if (fwrite(&chunk_count, sizeof(int), 1, file) != 1) {
+        perror("Erreur lors de l'écriture du compteur de chunks");
+        fclose(file);
+        return;
+    }
+
+    // Parcourir les chunks et enregistrer leurs données
+    for(int i=0;i<chunk_count;i++){
+        // Écriture du hash MD5
+        if (fwrite(chunks[i].md5, MD5_DIGEST_LENGTH, 1, file) != 1) {
+            perror("Erreur lors de l'écriture du MD5");
+            fclose(file);
+            return;
+        }
+
+        // Vérifier si le chunk contient des données réelles ou une référence
+        if ((intptr_t)chunks[i].data < chunk_count) {
+            // Chunk référencé : écrire une taille de données de 0 et l'index référencé
+            size_t data_size = 0;
+            int referenced_index = (int)(intptr_t)chunks[i].data;
+
+            
+            if (fwrite(&data_size, sizeof(size_t), 1, file) != 1 ||
+                fwrite(&referenced_index, sizeof(int), 1, file) != 1) {
+                perror("Erreur lors de l'écriture d'un chunk référencé");
+                fclose(file);
+                return;
+            }
+
+            // Write the index of the referenced chunk
+            if (fwrite(&referenced_index, sizeof(int), 1, file) != 1) {
+                perror("Error writing referenced chunk index");
+                fclose(file);
+                return;
+            }
+        } else {
+            // Chunk avec des données réelles : écrire la taille et les données
+            size_t data_size = strlen((char *)chunks[i].data) + 1; // Inclure le caractère nul
+            if (fwrite(&data_size, sizeof(size_t), 1, file) != 1 ||
+                fwrite(chunks[i].data, data_size, 1, file) != 1) {
+                perror("Erreur lors de l'écriture d'un chunk réel");
+                fclose(file);
+                return;
+            }
+        }
+
+    }
+    
+    fclose(file);
+}
 
 
 /**
@@ -407,96 +487,55 @@ void print_md5(unsigned char *md5) {
     printf("\n");
 }
 
-int create_test_deduplicated_file(const char *filename) {
-    FILE *file = fopen(filename, "wb");
-    if (!file) {
-        perror("Erreur lors de la creation du fichier test");
-        return 0;
-    }
 
-    int chunk_count = 3;
-    fwrite(&chunk_count, sizeof(int), 1, file);
-
-    char data_1[10] = "HelloWorld";
-    unsigned char md5_1[MD5_DIGEST_LENGTH];
-    compute_md5(data_1, sizeof(data_1), md5_1);
-    size_t data_size_1 = sizeof(data_1);
-
-    fwrite(md5_1, MD5_DIGEST_LENGTH, 1, file);
-    fwrite(&data_size_1, sizeof(size_t), 1, file);
-    fwrite(data_1, data_size_1, 1, file);
-
-    char data_2[10] = "HelloWorld"; 
-    unsigned char md5_2[MD5_DIGEST_LENGTH];
-    compute_md5(data_2, sizeof(data_2), md5_2);
-    size_t data_size_2 = 0;
-    int referenced_index = 0;
-
-    fwrite(md5_2, MD5_DIGEST_LENGTH, 1, file);
-    fwrite(&data_size_2, sizeof(size_t), 1, file);
-    fwrite(&referenced_index, sizeof(int), 1, file);
-
-    char data_3[15] = "Another Example";
-    unsigned char md5_3[MD5_DIGEST_LENGTH];
-    compute_md5(data_3, sizeof(data_3), md5_3);
-    size_t data_size_3 = sizeof(data_3);
-
-    fwrite(md5_3, MD5_DIGEST_LENGTH, 1, file);
-    fwrite(&data_size_3, sizeof(size_t), 1, file);
-    fwrite(data_3, data_size_3, 1, file);
-
-    fclose(file);
-    return 1;
-}
 
 int main() {
-    const char *filename = "test_deduplicated_file.bin";
-
-    if (!create_test_deduplicated_file(filename)) {
-        fprintf(stderr, "Failed to create test file\n");
-        return 1;
-    }
+    const char *filename = "test_deduplicated_file.txt";
 
     FILE *file = fopen(filename, "rb");
     if (!file) {
-        perror("Error opening test file");
+        perror("Error opening file");
         return 1;
     }
 
-    // appel de undeduplicate_file
-    Chunk *chunks = NULL;
-    int chunk_count = 0;
-    undeduplicate_file(file, &chunks, &chunk_count);
+    Chunk *chunks = calloc(CHUNK_SIZE, sizeof(Chunk));
+    Md5Entry *hash_table = calloc(HASH_TABLE_SIZE, sizeof(Md5Entry));
 
-    // Verifs des resultats
-    printf("Chunk Count: %d\n", chunk_count);
+    if (!chunks || !hash_table) {
+        perror("Memory allocation failed");
+        fclose(file);
+        free(chunks);
+        free(hash_table);
+        return 1;
+    }
 
-    for (int i = 0; i < chunk_count; i++) {
-        printf("Chunk %d:\n", i);
-        printf("  MD5: ");
+    size_t chunk_count = deduplicate_file(file, chunks, hash_table);
+
+    for (size_t i = 0; i < chunk_count; i++) {
+        printf("MD5: ");
         print_md5(chunks[i].md5);
-        printf("\n");
-
-        if (chunks[i].data) {
-            if (i == 0) {
-                printf("  Data: %.*s\n", 10, (char*)chunks[i].data);
-            } else if (i == 2) {
-                printf("  Data: %.*s\n", 15, (char*)chunks[i].data);
-            }
-        } else {
-            printf("  Data: (NULL)\n");
-        }
-    }
-
-    for (int i = 0; i < chunk_count; i++) {
-        if (chunks[i].data && i != 1) {  
-            free(chunks[i].data);
-        }
-    }
-    free(chunks);
-    fclose(file);
+        void *chunk_data;
     
-    remove(filename);
+    // verifie s'il s'agit d'un indice ou de données bruts
+    if ((intptr_t)chunks[i].data < (intptr_t)chunk_count) {
+        int original_index = (int)(intptr_t)chunks[i].data;
+        chunk_data = chunks[original_index].data;
+    } else {
+        
+        chunk_data = chunks[i].data;
+    }
+
+    
+    printf("Chunk %zu data: %s\n", i, (char*)chunk_data);
+    }
+    fclose(file);
+
+    write_backup_file("backup.txt",chunks,chunk_count);
+
+
+
+    free(chunks);
+    free(hash_table);
 
     return 0;
 }
