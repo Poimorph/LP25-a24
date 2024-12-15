@@ -30,7 +30,7 @@ typedef struct {
 int hex_to_int(unsigned char c);
 void md5_hex_to_bytes(unsigned char * hex_md5, unsigned char * md5_bytes);
 log_t *read_backup_log(const char *logfile);
-void update_backup_log(const log_element *element, const char *filename);
+void update_backup_log( log_element *element, const char *filename);
 void write_log_element(log_element *elt, const char *logfile);
 PathList *list_files(const char *directory);
 void copy_file(const char *src, const char *dest);
