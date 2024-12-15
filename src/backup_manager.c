@@ -329,13 +329,6 @@ void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_cou
                 fclose(file);
                 return;
             }
-
-            // Write the index of the referenced chunk
-            if (fwrite(&referenced_index, sizeof(int), 1, file) != 1) {
-                perror("Error writing referenced chunk index");
-                fclose(file);
-                return;
-            }
         } else {
             // Chunk avec des données réelles : écrire la taille et les données
             size_t data_size = strlen((char *)chunks[i].data) + 1; // Inclure le caractère nul
