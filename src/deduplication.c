@@ -52,27 +52,27 @@ void compute_md5(void *data, size_t len, unsigned char *md5_out) {
 
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     if (!ctx) {
-        fprintf(stderr, "Erreur : échec de l'initialisation du contexte EVP.\n");
+        perror("Erreur lors de l'initialisation du contexte EVP.\n");
         return;
     }
 
     // Initialisation pour MD5
     if (EVP_DigestInit_ex(ctx, EVP_md5(), NULL) != 1) {
-        fprintf(stderr, "Erreur : échec de l'initialisation MD5.\n");
+        perror("Erreur lors de échec de l'initialisation MD5.\n");
         EVP_MD_CTX_free(ctx);
         return;
     }
 
     // Mise à jour avec les données
     if (EVP_DigestUpdate(ctx, data, len) != 1) {
-        fprintf(stderr, "Erreur : échec de la mise à jour MD5.\n");
+        perror("Erreur lors de échec de la mise à jour MD5.\n");
         EVP_MD_CTX_free(ctx);
         return;
     }
 
     // Finalisation et obtention du résultat
     if (EVP_DigestFinal_ex(ctx, md5_out, NULL) != 1) {
-        fprintf(stderr, "Erreur : échec de la finalisation MD5.\n");
+        perror("Erreur lors de échec de la finalisation MD5.\n");
         EVP_MD_CTX_free(ctx);
         return;
     }
@@ -110,7 +110,6 @@ int find_md5(Md5Entry *hash_table, unsigned char *md5) {
  * 
  * Cette fonction insère un hash MD5 et son index associé dans une table de hachage. 
  * Elle utilise une fonction de hachage pour déterminer l'emplacement où stocker les données. 
- * Si des collisions surviennent, elles ne sont pas gérées dans cette implémentation basique.
  * 
  * @param hash_table Le tableau de hachage qui contiendra les entrées MD5
  * @param md5 Le hash MD5 à ajouter dans la table de hachage
@@ -119,13 +118,15 @@ int find_md5(Md5Entry *hash_table, unsigned char *md5) {
 void add_md5(Md5Entry *hash_table, unsigned char *md5, int index) {
     // Calculer l'indice dans la table de hachage en utilisant la fonction de hachage
     unsigned int hash_index = hash_md5(md5);
+ 
+    if(memcmp(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH)!= 0){ //Verifie que le md5 n'a pas deja été enregistré
+        // Ajouter l'entrée dans la table à l'indice calculé 
+        // Copier le MD5 dans la table de hachage 
+        memcpy(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH);
 
-    // Ajouter l'entrée dans la table à l'indice calculé
-    // Copier le MD5 dans la table de hachage
-    memcpy(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH);
-
-    // Enregistrer l'index du chunk dans la table
-    hash_table[hash_index].index = index;
+        // Enregistrer l'index du chunk dans la table
+        hash_table[hash_index].index = index;
+        }
 }
 
 /**
@@ -149,7 +150,7 @@ void add_md5(Md5Entry *hash_table, unsigned char *md5, int index) {
  */
 unsigned char *md5_file(FILE *file){
     if (!file) {
-        perror("Erreur lors de l'ouverture du fichier");
+        fprintf(stderr, "Paramètre invalides pour md5_file\n");
         return NULL;
     }
     
@@ -206,6 +207,7 @@ unsigned char *md5_file(FILE *file){
 
 }
 
+
 /**
  * @brief Fonction pour convertir un fichier non dédupliqué en tableau de chunks
  * 
@@ -222,8 +224,8 @@ unsigned char *md5_file(FILE *file){
  */
 size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     // on détermine si le fichier est valide
-    if (!file) {
-        perror("Erreur lors de l'ouverture du fichier");
+    if (!file || !chunks || !hash_table ) {
+        fprintf(stderr, "Paramètres invalides pour deduplicate_file\n");
         return -1;}
 
     // Déterminer la taille du fichier
@@ -269,6 +271,9 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
         unsigned char md5[MD5_DIGEST_LENGTH];
         compute_md5(buffer, bytes_read, md5);
 
+        // Ajouter le MD5 dans la table de hachage
+        add_md5(hash_table, md5, i);
+
         // Vérifier si le MD5 existe déjà dans la table de hachage
         int existing_index = find_md5(hash_table, md5);
         if (existing_index != -1) {
@@ -277,12 +282,15 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
             continue;
         }
 
-        // Ajouter le MD5 dans la table de hachage
-        add_md5(hash_table, md5, i);
+        if (existing_index == -1) {
+            memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
+            chunks[i].data = buffer;
+        } else {
+            chunks[i].data = (void *)(intptr_t)existing_index; // Stocker l'indice du chunk existant dans data
+            memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
+            free(buffer);
+        }
 
-        // Remplir la structure Chunk
-        memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
-        chunks[i].data = buffer;
 
     }
     return chunk_count;
@@ -300,8 +308,80 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
  */
 void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
     // on détermine si le fichier est valide
-    if (!file) {
-        perror("Erreur lors de l'ouverture du fichier");
+    if (!file || !chunks || !chunk_count) {
+        fprintf(stderr, "Paramètres invalides pour undeduplicate_file\n");
         return NULL;}
 
+    // Lire le nombre total de chunks depuis le fichier
+    if (fread(chunk_count, sizeof(int), 1, file) != 1) {
+        perror("Erreur lors de la lecture du compteur de chunks");
+        return;
+    }
+
+    // Allouer de la mémoire pour les chunks
+    *chunks = malloc(sizeof(Chunk) * (*chunk_count));
+    if (!*chunks) {
+        perror("Erreur d'allocation mémoire pour les chunks");
+        return;
+    }
+
+    // Parcourir le fichier pour charger chaque chunk
+    for (int i = 0; i < *chunk_count; i++) {
+        // Lire le MD5 du chunk
+        if (fread((*chunks)[i].md5, MD5_DIGEST_LENGTH, 1, file) != 1) {
+            perror("Erreur lors de la lecture du MD5 du chunk");
+            free(*chunks);
+            *chunks = NULL;
+            return;
+        }
+
+        // Lire la taille des données du chunk (0 pour un chunk référencé)
+        size_t data_size;
+        if (fread(&data_size, sizeof(size_t), 1, file) != 1) {
+            perror("Erreur lors de la lecture de la taille du chunk");
+            free(*chunks);
+            *chunks = NULL;
+            return;
+        }
+
+        if (data_size > 0) {
+            // Chunk avec des données réelles
+            (*chunks)[i].data = malloc(data_size);
+            if (!(*chunks)[i].data) {
+                perror("Erreur d'allocation mémoire pour les données du chunk");
+                free(*chunks);
+                *chunks = NULL;
+                return;
+            }
+
+            // Lire les données du chunk
+            if (fread((*chunks)[i].data, data_size, 1, file) != 1) {
+                perror("Erreur lors de la lecture des données du chunk");
+                free((*chunks)[i].data);
+                free(*chunks);
+                *chunks = NULL;
+                return;
+            }
+        } else {
+            // Chunk référencé : lire l'index du chunk source
+            int referenced_index;
+            if (fread(&referenced_index, sizeof(int), 1, file) != 1) {
+                perror("Erreur lors de la lecture de l'indice référencé");
+                free(*chunks);
+                *chunks = NULL;
+                return;
+            }
+
+            // Vérifier que l'indice référencé est valide
+            if (referenced_index < 0 || referenced_index >= i) {
+                fprintf(stderr, "Indice de chunk référencé invalide : %d\n", referenced_index);
+                free(*chunks);
+                *chunks = NULL;
+                return;
+            }
+
+            // Copier les données du chunk référencé
+            (*chunks)[i].data = (*chunks)[referenced_index].data;
+        }
+    }
 }
