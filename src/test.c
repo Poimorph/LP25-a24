@@ -504,32 +504,22 @@ int main() {
     }
 
     size_t chunk_count = deduplicate_file(file, chunks, hash_table);
-
-    for (size_t i = 0; i < chunk_count; i++) {
-        printf("MD5: ");
-        print_md5(chunks[i].md5);
-        void *chunk_data;
-    
-    // verifie s'il s'agit d'un indice ou de données bruts
-    if ((intptr_t)chunks[i].data < (intptr_t)chunk_count) {
-        int original_index = (int)(intptr_t)chunks[i].data;
-        chunk_data = chunks[original_index].data;
-    } else {
-        
-        chunk_data = chunks[i].data;
-    }
-
-    
-    printf("Chunk %zu data: %s\n", i, (char*)chunk_data);
-    }
     fclose(file);
 
+
     write_backup_file("backup.txt",chunks,chunk_count);
-
-
-
     free(chunks);
     free(hash_table);
+
+    chunks = NULL;
+    int count = 0;
+    file=fopen("backup.txt","rb");
+    undeduplicate_file(file, &chunks, &count);
+    for (int i=0; i<count;i++){
+        print_md5(chunks[i].md5);
+        printf("Chunk %d data: %.20s\n", i, (char*)chunks[i].data);
+    } 
+
 
     return 0;
 }

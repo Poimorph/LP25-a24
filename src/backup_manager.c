@@ -287,8 +287,6 @@ void create_backup(const char *source_dir, const char *backup_dir) {
  * @param chunk_count Le nombre total de chunks dans le tableau.
  */
 void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_count) {
-    /*
-    */
     if (!output_filename || !chunks || chunk_count <= 0) {
         fprintf(stderr, "Paramètres invalides pour write_backup_file\n");
         return;
