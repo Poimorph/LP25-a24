@@ -46,7 +46,8 @@ unsigned int hash_md5(unsigned char *md5) {
  */
 void compute_md5(void *data, size_t len, unsigned char *md5_out) {
     // Si les données ou la sortie sont nulles, on sort de la fonction
-    if (data == NULL || md5_out == NULL) {
+    if (data == NULL || md5_out == NULL || len<0) {
+        fprintf(stderr, "Erreur : paramètres invalides dans compute_md5.\n");
         return; 
     }
 
@@ -92,6 +93,12 @@ void compute_md5(void *data, size_t len, unsigned char *md5_out) {
  * @return retourne l'index s'il trouve le md5 dans le tableau et -1 sinon
  */
 int find_md5(Md5Entry *hash_table, unsigned char *md5) {
+    // Vérifier que la table de hachage et les paramètres sont valides
+    if (!hash_table || !md5) {
+        fprintf(stderr, "Erreur : paramètres invalides dans find_md5.\n");
+        return -1;
+    }
+
    // Calculer l'indice dans la table de hachage en utilisant la fonction de hachage
     unsigned int index = hash_md5(md5);
 
@@ -178,8 +185,6 @@ unsigned char *md5_file(FILE *file){
     rewind(file); // Revenir au début du fichier
 
     // Allouer un buffer pour lire le fichier
-
-
     unsigned char *file_buffer = malloc(file_size);
     if (!file_buffer) {
         perror("Erreur lors de l'allocation de mémoire pour le fichier");
