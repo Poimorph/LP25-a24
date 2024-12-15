@@ -25,8 +25,12 @@ typedef struct {
 
 
 
-// Fonction de hachage MD5 pour l'indexation
-// dans la table de hachage
+/**
+ * @brief Fonction de hachage MD5 pour l'indexation dans la table de hachage
+ * 
+ * @param md5 Tableau de taille MD5_DIGEST_LENGTH
+ * @return unsigned int - L'index calculé dans la plage [0, HASH_TABLE_SIZE - 1].
+ */
 unsigned int hash_md5(unsigned char *md5) {
     unsigned int hash = 0;
     for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
@@ -36,13 +40,27 @@ unsigned int hash_md5(unsigned char *md5) {
     
 }
 
-// Fonction pour calculer le MD5 d'un chunk en utilisant OpenSSL EVP
+/**
+ * @brief Calcule le hash MD5 des données données en entrée.
+ * 
+ * Cette fonction utilise l'API OpenSSL EVP pour calculer un hash MD5 des données 
+ * spécifiées. Le résultat est écrit dans le buffer `md5_out`, qui doit avoir une 
+ * taille de MD5_DIGEST_LENGTH (16 octets).
+ * 
+ * @param data     Un pointeur vers les données d'entrée dont le MD5 doit être calculé.
+ *                 Ce pointeur ne doit pas être NULL.
+ * @param len      La taille des données en octets.
+ * @param md5_out  Un pointeur vers un buffer où le résultat du MD5 sera stocké. 
+ *                 Ce buffer doit avoir une taille de MD5_DIGEST_LENGTH (16 octets). 
+ *                 Ce pointeur ne doit pas être NULL.
+ * 
+ * @note Si `data` ou `md5_out` est NULL, la fonction retourne immédiatement sans effectuer de calcul.
+ * 
+ * @warning En cas d'échec de l'initialisation ou des étapes de calcul, un message d'erreur est écrit sur `stderr`.
+ * 
+ * @see EVP_MD_CTX_new, EVP_DigestInit_ex, EVP_DigestUpdate, EVP_DigestFinal_ex
+ */
 void compute_md5(void *data, size_t len, unsigned char *md5_out) {
-    /* @param: data     - données d'entrée
-     *         len      - taille des données
-     *         md5_out  - buffer de sortie (doit être au moins MD5_DIGEST_LENGTH (=16) octets)
-     */
-
     // Si les données ou la sortie sont nulles, on sort de la fonction
     if (data == NULL || md5_out == NULL) {
         return; 
@@ -50,27 +68,27 @@ void compute_md5(void *data, size_t len, unsigned char *md5_out) {
 
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     if (!ctx) {
-        fprintf(stderr, "Erreur : échec de l'initialisation du contexte EVP.\n");
+        perror("Erreur lors de l'initialisation du contexte EVP.\n");
         return;
     }
 
     // Initialisation pour MD5
     if (EVP_DigestInit_ex(ctx, EVP_md5(), NULL) != 1) {
-        fprintf(stderr, "Erreur : échec de l'initialisation MD5.\n");
+        perror("Erreur lors de échec de l'initialisation MD5.\n");
         EVP_MD_CTX_free(ctx);
         return;
     }
 
     // Mise à jour avec les données
     if (EVP_DigestUpdate(ctx, data, len) != 1) {
-        fprintf(stderr, "Erreur : échec de la mise à jour MD5.\n");
+        perror("Erreur lors de échec de la mise à jour MD5.\n");
         EVP_MD_CTX_free(ctx);
         return;
     }
 
     // Finalisation et obtention du résultat
     if (EVP_DigestFinal_ex(ctx, md5_out, NULL) != 1) {
-        fprintf(stderr, "Erreur : échec de la finalisation MD5.\n");
+        perror("Erreur lors de échec de la finalisation MD5.\n");
         EVP_MD_CTX_free(ctx);
         return;
     }
@@ -81,14 +99,15 @@ void compute_md5(void *data, size_t len, unsigned char *md5_out) {
     // md5_out contient maintenant le hachage MD5 des données
 }
 
-// Fonction permettant de chercher un MD5 dans la table de hachage
+/**
+ * @brief Fonction permettant de chercher un MD5 dans la table de hachage
+ * 
+ * @param hash_table le tableau de hachage qui contient les MD5 et l'index des chunks unique
+ * @param md5 le md5 du chunk dont on veut déterminer l'unicité
+ * 
+ * @return retourne l'index s'il trouve le md5 dans le tableau et -1 sinon
+ */
 int find_md5(Md5Entry *hash_table, unsigned char *md5) {
-    /* @param: hash_table   le tableau de hachage qui contient les MD5 et l'index des chunks unique
-     *         md5          le md5 du chunk dont on veut déterminer l'unicité
-     * 
-     * @return: retourne l'index s'il trouve le md5 dans le tableau et -1 sinon
-     */
-
    // Calculer l'indice dans la table de hachage en utilisant la fonction de hachage
     unsigned int index = hash_md5(md5);
 
@@ -102,48 +121,72 @@ int find_md5(Md5Entry *hash_table, unsigned char *md5) {
     return -1;
 }
 
+/**
+ * @brief Fonction pour ajouter un MD5 dans la table de hachage.
+ * 
+ * Cette fonction insère un hash MD5 et son index associé dans une table de hachage. 
+ * Elle utilise une fonction de hachage pour déterminer l'emplacement où stocker les données. 
+ * 
+ * @param hash_table Le tableau de hachage qui contiendra les entrées MD5
+ * @param md5 Le hash MD5 à ajouter dans la table de hachage
+ * @param index L'index du chunk associé au hash MD5
+ */
 void add_md5(Md5Entry *hash_table, unsigned char *md5, int index) {
-    /* @brief Ajoute un MD5 dans la table de hachage
-    *
-    * @param   hash_table  Le tableau de hachage qui contiendra les entrées MD5
-    *          md5         Le hash MD5 à ajouter dans la table de hachage
-    *          index       L'index du chunk associé au hash MD5
-    * 
-    */
     // Calculer l'indice dans la table de hachage en utilisant la fonction de hachage
     unsigned int hash_index = hash_md5(md5);
+ 
+    if(memcmp(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH)!= 0){ //Verifie que le md5 n'a pas deja été enregistré
+        // Ajouter l'entrée dans la table à l'indice calculé 
+        // Copier le MD5 dans la table de hachage 
+        memcpy(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH);
 
-    // Ajouter l'entrée dans la table à l'indice calculé
-    // Copier le MD5 dans la table de hachage
-    memcpy(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH);
-
-    // Enregistrer l'index du chunk dans la table
-    hash_table[hash_index].index = index;
+        // Enregistrer l'index du chunk dans la table
+        hash_table[hash_index].index = index;
+        }
 }
 
+/**
+ * @brief  Calcule le hash MD5 d'un fichier complet.
+ *
+ * @param  file Pointeur vers un fichier ouvert en mode binaire (FILE*), dont le MD5 sera calculé.
+ * 
+ * @return unsigned char* - Un tableau de 16 octets contenant le hash MD5 du fichier.
+ *                          Renvoie NULL en cas d'erreur (fichier invalide, allocation mémoire, ou autre problème).
+ * 
+ * @note   L'appelant est responsable de libérer la mémoire allouée pour le tableau MD5 retourné.
+ * 
+ * @details 
+ * - La fonction lit tout le contenu du fichier en mémoire, calcule le MD5 pour le fichier complet, 
+ *   puis retourne le hash résultant.
+ * - Si une erreur survient, un message d'erreur est écrit dans `stderr` et `NULL` est retourné.
+ * - Les erreurs possibles incluent :
+ *   - Fichier invalide ou NULL.
+ *   - Problèmes liés à la détermination de la taille ou à la lecture du fichier.
+ *   - Échec d'allocation de mémoire.
+ */
 unsigned char *md5_file(FILE *file){
     if (!file) {
-        fprintf(stderr, "Fichier invalide pour le calcul du MD5\n");
+        fprintf(stderr, "Paramètre invalides pour md5_file\n");
         return NULL;
     }
     
     // Allouer un buffer pour le résultat MD5
     unsigned char *md5_result = malloc(MD5_DIGEST_LENGTH);
     if (!md5_result) {
-        fprintf(stderr, "Erreur : allocation mémoire pour le MD5\n");
+        perror("Erreur lors de l'allocation de mémoire pour md5_result");
         return NULL;
     }
 
     // Déterminer la taille du fichier
     if (fseek(file, 0, SEEK_END) != 0) {
-        fprintf(stderr, "Erreur : échec du déplacement à la fin du fichier\n");
+        perror("Erreur lors du parcours du fichier");
         free(md5_result);
         return NULL;
     }
 
     long file_size = ftell(file);
     if (file_size == -1) {
-        fprintf(stderr, "Erreur : échec de la récupération de la taille du fichier\n");
+        perror("Erreur lors de la récupération de la taille du fichier");
         free(md5_result);
         return NULL;
     }
@@ -153,7 +196,7 @@ unsigned char *md5_file(FILE *file){
     // Allouer un buffer pour lire le fichier
     unsigned char *file_buffer = malloc(file_size);
     if (!file_buffer) {
-        fprintf(stderr, "Erreur : allocation mémoire pour le fichier\n");
+        perror("Erreur lors de l'allocation de mémoire pour le fichier");
         free(md5_result);
         return NULL;
     }
@@ -161,7 +204,7 @@ unsigned char *md5_file(FILE *file){
     // Lire le fichier entier
     size_t bytes_read = fread(file_buffer, 1, file_size, file);
     if (bytes_read != (size_t)file_size) {
-        fprintf(stderr, "Erreur : lecture du fichier incomplète\n");
+        perror("Erreur lors de la lecture du fichier");
         free(file_buffer);
         free(md5_result);
         return NULL;
@@ -177,30 +220,37 @@ unsigned char *md5_file(FILE *file){
 
 }
 
+
 /**
  * @brief Fonction pour convertir un fichier non dédupliqué en tableau de chunks
  * 
  * @param file le fichier qui sera dédupliqué
  * @param chunks le tableau de chunks initialisés qui contiendra les chunks issu du fichier
- * @param hash_table le tableau de hachage qui contient les MD5 et l'index des chunks unique
- * , Chunk *chunks, Md5Entry *hash_table
+ * @param hash_table le tableau de hachage qui contient les MD5 et l'index des chunks unique 
+ * 
+ * @return size_t Nombre total de chunks traités (y compris les duplicatas). Retourne -1 en cas d'erreur.
+ * 
+ *  * @note 
+ * - La taille de chaque chunk est définie par la constante `HASH_TABLE_SIZE`.
+ * - Les buffers de données pour les chunks sont alloués dynamiquement. Il est de la responsabilité 
+ *   de l'appelant de libérer ces buffers après utilisation.
  */
 size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     // on détermine si le fichier est valide
-    if (!file) {
-        perror("Erreur lors de l'ouverture du fichier");
-        return NULL;}
+    if (!file || !chunks || !hash_table ) {
+        fprintf(stderr, "Paramètres invalides pour deduplicate_file\n");
+        return -1;}
 
     // Déterminer la taille du fichier
     if (fseek(file, 0, SEEK_END) != 0) {
         perror("Erreur lors du parcours du fichier");
-        return NULL;
+        return -1;
     }
 
     long file_size = ftell(file);
     if (file_size == -1) {
         perror("Erreur lors de la récupération de la taille du fichier");
-        return NULL;
+        return -1;
     }
 
     rewind(file); // Revenir au début du fichier
@@ -219,7 +269,7 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
         unsigned char *buffer = malloc(bytes_to_read);
         if (!buffer) {
             perror("Erreur lors de l'allocation mémoire pour le chunk");
-            return;
+            return -1;
         }
 
         // Lire les données du chunk
@@ -227,12 +277,15 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
         if (bytes_read != bytes_to_read) {
             perror("Erreur lors de la lecture du chunk");
             free(buffer);
-            return;
+            return -1;
         }
 
         // Calculer le MD5 du chunk
         unsigned char md5[MD5_DIGEST_LENGTH];
         compute_md5(buffer, bytes_read, md5);
+
+        // Ajouter le MD5 dans la table de hachage
+        add_md5(hash_table, md5, i);
 
         // Vérifier si le MD5 existe déjà dans la table de hachage
         int existing_index = find_md5(hash_table, md5);
@@ -242,61 +295,208 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
             continue;
         }
 
-        // Ajouter le MD5 dans la table de hachage
-        add_md5(hash_table, md5, i);
+        if (existing_index == -1) {
+            memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
+            chunks[i].data = buffer;
+        } else {
+            chunks[i].data = (void *)(intptr_t)existing_index; // Stocker l'indice du chunk existant dans data
+            memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
+            free(buffer);
+        }
 
-        // Remplir la structure Chunk
-        memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
-        chunks[i].data = buffer;
 
     }
     return chunk_count;
 }
 
-#define MAX_CHUNKS 1000 // Taille maximale du tableau de chunks
+
+
+/**
+ * @brief Fonction permettant de charger un fichier dédupliqué en table de chunks
+ *        en remplaçant les références par les données correspondantes
+ * 
+ * @param file est le nom du fichier dédupliqué présent dans le répertoire de sauvegarde
+ * @param chunks représente le tableau de chunk qui contiendra les chunks restauré depuis filename
+ * @param chunk_count est un compteur du nombre de chunk restauré depuis le fichier filename
+ */
+void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
+    // on détermine si le fichier est valide
+    if (!file || !chunks || !chunk_count) {
+        fprintf(stderr, "Paramètres invalides pour undeduplicate_file\n");
+        return NULL;}
+
+    // Lire le nombre total de chunks depuis le fichier
+    if (fread(chunk_count, sizeof(int), 1, file) != 1) {
+        perror("Erreur lors de la lecture du compteur de chunks");
+        return;
+    }
+
+    // Allouer de la mémoire pour les chunks
+    *chunks = malloc(sizeof(Chunk) * (*chunk_count));
+    if (!*chunks) {
+        perror("Erreur d'allocation mémoire pour les chunks");
+        return;
+    }
+
+    // Parcourir le fichier pour charger chaque chunk
+    for (int i = 0; i < *chunk_count; i++) {
+        // Lire le MD5 du chunk
+        if (fread((*chunks)[i].md5, MD5_DIGEST_LENGTH, 1, file) != 1) {
+            perror("Erreur lors de la lecture du MD5 du chunk");
+            free(*chunks);
+            *chunks = NULL;
+            return;
+        }
+
+        // Lire la taille des données du chunk (0 pour un chunk référencé)
+        size_t data_size;
+        if (fread(&data_size, sizeof(size_t), 1, file) != 1) {
+            perror("Erreur lors de la lecture de la taille du chunk");
+            free(*chunks);
+            *chunks = NULL;
+            return;
+        }
+
+        if (data_size > 0) {
+            // Chunk avec des données réelles
+            (*chunks)[i].data = malloc(data_size);
+            if (!(*chunks)[i].data) {
+                perror("Erreur d'allocation mémoire pour les données du chunk");
+                free(*chunks);
+                *chunks = NULL;
+                return;
+            }
+
+            // Lire les données du chunk
+            if (fread((*chunks)[i].data, data_size, 1, file) != 1) {
+                perror("Erreur lors de la lecture des données du chunk");
+                free((*chunks)[i].data);
+                free(*chunks);
+                *chunks = NULL;
+                return;
+            }
+        } else {
+            // Chunk référencé : lire l'index du chunk source
+            int referenced_index;
+            if (fread(&referenced_index, sizeof(int), 1, file) != 1) {
+                perror("Erreur lors de la lecture de l'indice référencé");
+                free(*chunks);
+                *chunks = NULL;
+                return;
+            }
+
+            // Vérifier que l'indice référencé est valide
+            if (referenced_index < 0 || referenced_index >= i) {
+                fprintf(stderr, "Indice de chunk référencé invalide : %d\n", referenced_index);
+                free(*chunks);
+                *chunks = NULL;
+                return;
+            }
+
+            // Copier les données du chunk référencé
+            (*chunks)[i].data = (*chunks)[referenced_index].data;
+        }
+    }
+}
+
+// Fonction pour afficher un tableau de MD5 en format hexadécimal
+void print_md5(unsigned char *md5) {
+    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+        printf("%02x", md5[i]);
+    }
+    printf("\n");
+}
+
+int create_test_deduplicated_file(const char *filename) {
+    FILE *file = fopen(filename, "wb");
+    if (!file) {
+        perror("Erreur lors de la creation du fichier test");
+        return 0;
+    }
+
+    int chunk_count = 3;
+    fwrite(&chunk_count, sizeof(int), 1, file);
+
+    char data_1[10] = "HelloWorld";
+    unsigned char md5_1[MD5_DIGEST_LENGTH];
+    compute_md5(data_1, sizeof(data_1), md5_1);
+    size_t data_size_1 = sizeof(data_1);
+
+    fwrite(md5_1, MD5_DIGEST_LENGTH, 1, file);
+    fwrite(&data_size_1, sizeof(size_t), 1, file);
+    fwrite(data_1, data_size_1, 1, file);
+
+    char data_2[10] = "HelloWorld"; 
+    unsigned char md5_2[MD5_DIGEST_LENGTH];
+    compute_md5(data_2, sizeof(data_2), md5_2);
+    size_t data_size_2 = 0;
+    int referenced_index = 0;
+
+    fwrite(md5_2, MD5_DIGEST_LENGTH, 1, file);
+    fwrite(&data_size_2, sizeof(size_t), 1, file);
+    fwrite(&referenced_index, sizeof(int), 1, file);
+
+    char data_3[15] = "Another Example";
+    unsigned char md5_3[MD5_DIGEST_LENGTH];
+    compute_md5(data_3, sizeof(data_3), md5_3);
+    size_t data_size_3 = sizeof(data_3);
+
+    fwrite(md5_3, MD5_DIGEST_LENGTH, 1, file);
+    fwrite(&data_size_3, sizeof(size_t), 1, file);
+    fwrite(data_3, data_size_3, 1, file);
+
+    fclose(file);
+    return 1;
+}
 
 int main() {
+    const char *filename = "test_deduplicated_file.bin";
 
-     // Fichier de test
-    const char *test_file = "src/example.txt";
+    if (!create_test_deduplicated_file(filename)) {
+        fprintf(stderr, "Failed to create test file\n");
+        return 1;
+    }
 
-    
-
-    // Initialiser les structures nécessaires
-    Chunk chunks[CHUNK_SIZE] = {0}; // Tableau pour stocker les chunks uniques
-    Md5Entry hash_table[HASH_TABLE_SIZE] = {0}; // Table de hachage pour les MD5
-    size_t nb;
-
-    // Ouvrir le fichier pour la déduplication
-    FILE *file = fopen(test_file, "rb");
+    FILE *file = fopen(filename, "rb");
     if (!file) {
-        fprintf(stderr, "Erreur : impossible d'ouvrir le fichier de test\n");
-        return EXIT_FAILURE;
+        perror("Error opening test file");
+        return 1;
     }
 
-    // Appeler la fonction de déduplication
-    nb=deduplicate_file(file, chunks, hash_table);
-    fclose(file);
+    // appel de undeduplicate_file
+    Chunk *chunks = NULL;
+    int chunk_count = 0;
+    undeduplicate_file(file, &chunks, &chunk_count);
 
-    // Afficher les résultats
-    printf("Chunks uniques détectés :\n");
-    for (int i = 0; i < CHUNK_SIZE && chunks[i].data != NULL; i++) {
-        printf("Chunk %d : ", i + 1);
-        for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
-            printf("%02x", chunks[i].md5[j]); // Afficher le MD5
+    // Verifs des resultats
+    printf("Chunk Count: %d\n", chunk_count);
 
-        }
+    for (int i = 0; i < chunk_count; i++) {
+        printf("Chunk %d:\n", i);
+        printf("  MD5: ");
+        print_md5(chunks[i].md5);
         printf("\n");
+
+        if (chunks[i].data) {
+            if (i == 0) {
+                printf("  Data: %.*s\n", 10, (char*)chunks[i].data);
+            } else if (i == 2) {
+                printf("  Data: %.*s\n", 15, (char*)chunks[i].data);
+            }
+        } else {
+            printf("  Data: (NULL)\n");
+        }
     }
-    printf("nombre total de chunks : %zu",nb);
 
-    // Libérer la mémoire allouée pour les chunks
-    for (int i = 0; i < CHUNK_SIZE && chunks[i].data != NULL; i++) {
-        free(chunks[i].data);
+    for (int i = 0; i < chunk_count; i++) {
+        if (chunks[i].data && i != 1) {  
+            free(chunks[i].data);
+        }
     }
-
-     
-
+    free(chunks);
+    fclose(file);
+    
+    remove(filename);
 
     return 0;
 }

@@ -107,8 +107,8 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table);
  *        en remplaçant les références par les données correspondantes
  * 
  * @param file est le nom du fichier dédupliqué présent dans le répertoire de sauvegarde
- * @param chunks représente le tableau de chunk qui contiendra les chunks restauré depuis filename
- * @param chunk_count est un compteur du nombre de chunk restauré depuis le fichier filename
+ * @param chunks représente le tableau de chunk qui contiendra les chunks restauré depuis le fichier file
+ * @param chunk_count est un compteur du nombre de chunk restauré depuis le fichier file
  */
 void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count);
 
