@@ -60,36 +60,38 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     *          backup_dir est le chemin vers le répertoire de sauvegarde
     */
 
-    time_t t = time(NULL);
+    time_t t = time(NULL); // On définit la variable date
     struct tm tm = *localtime(&t);
     char date[1024];
     snprintf(date, sizeof(date), "%d-%02d-%02d-%02d:%02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-    DIR* dir = opendir(backup_dir);
+    DIR* dir = opendir(backup_dir); // On ouvre le dossier de sauvegarde. Et on cherche à savoir si il existe
     if (dir == NULL) {
         //Si il n'existe pas on le créer
         mkdir(backup_dir,0777);
     }
 
     char path[1024];
-    snprintf(path, sizeof(path), "%s/.backup_log.txt", backup_dir);
+    snprintf(path, sizeof(path), "%s/.backup_log.txt", backup_dir); // On construit le chemin vers le dossier de backup
 
 
-    if (access(path, F_OK) == -1) {
+    if (access(path, F_OK) == -1) { //Si le fichier .backup_log n'existe pas on fait une backup complète
 
+        //On construit et on créer le chemin vers le dossier de backup complète
         char complete_backup[1024];
         snprintf(complete_backup, sizeof(complete_backup), "%s/%s", backup_dir, date);
         mkdir(complete_backup,0777);
 
+        // On copie tout les fichiers.
         copy_file(source_dir, complete_backup);
 
         FILE* backup_log = fopen(path, "w");
 
         PathList *list_of_path = list_files(complete_backup);
 
-        for (int i = 0; i < list_of_path->count; i++) {
+        for (int i = 0; i < list_of_path->count; i++) { // Pour chaque  fichier ou dossier copé.
             log_element *log = malloc(sizeof(log_element));
 
-            char backup[1024];
+            char backup[1024]; // On définit son chemin relatif par rapport au dossier de backup
             snprintf(backup, sizeof(backup), "%s/", backup_dir);
             char * full_path = PathSplitting(list_of_path->paths[i], backup);
 
@@ -101,7 +103,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
             stat(list_of_path->paths[i], &statbuff);
             printf("%d\n",stat(list_of_path->paths[i], &statbuff));
             printf("%d", S_ISDIR(statbuff.st_mode));
-            if (S_ISREG(statbuff.st_mode)) {
+            if (S_ISREG(statbuff.st_mode)) { // Si le présupposé fichier est un fichier alors on calule son md5
 
                 FILE* tempFile = fopen(list_of_path->paths[i], "rb");
                 unsigned char * md5temp = md5_file(tempFile);
@@ -111,6 +113,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
             }
             write_log_element(log, path);
             free(log);
+            backup_file(list_of_path->paths[i]); // Enfin on le déduplique.
         }
         fclose(backup_log);
     } else {
@@ -131,7 +134,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         log_t *logList = read_backup_log(path);
 
         log_element *backup_log_element = logList->head;
-        char incremental_final_backup[1024];
+        char incremental_final_backup[1024]; // A des fins d'organisation il est nécessaire de retirer le premier slash
         snprintf(incremental_final_backup, sizeof(incremental_final_backup), "%s/", incremental_backup);
         for (int i = 0; i < current_file_list->count; i++) {
 
@@ -139,26 +142,27 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
             int isExisiting = 0;
             backup_log_element = logList->head;
+            //Calcul le chemin relatif
             char * relative = PathSplitting(current_file_list->paths[i], incremental_final_backup);
 
-            while (backup_log_element != NULL) {
+            while (backup_log_element != NULL) { // Pour chaque élément du fichier backup_log
                 char * log_element_path = (char *)backup_log_element->path;
                 char * relative_log_element = shortFirstDelimiter(log_element_path);
                 //Si les fichiers sont les mêmes.
-                if (strcmp(relative, relative_log_element) == 0) {
+                if (strcmp(relative, relative_log_element) == 0) { // Si une des itérations à le même chemin
                     isExisiting = 1;
                     struct stat statbuff;
                     stat(current_file_list->paths[i], &statbuff);
-                    if (S_ISREG(statbuff.st_mode)) {
+                    if (S_ISREG(statbuff.st_mode)) { // Si le fichier n'est pas un dossier
                         FILE* file_local = fopen(current_file_list->paths[i], "rb");
                         char backup_file_path[1024];
                         snprintf(backup_file_path, sizeof(backup_file_path), "%s/%s", backup_dir, relative_log_element);
 
-
+                        //On calcule son md5
                         unsigned char * md5 = md5_file(file_local);
 
 
-
+                        //On affiche les deux md5
                         for (int y = 0; y < MD5_DIGEST_LENGTH; y++) {
                             printf("%02x", md5[y]);
                         }
@@ -170,12 +174,12 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
 
 
-                        if (memcmp(md5, backup_log_element->md5, MD5_DIGEST_LENGTH) == 0) {
-
+                        if (memcmp(md5, backup_log_element->md5, MD5_DIGEST_LENGTH) == 0) {// Si les deux fichiers ont le meme md5
+                            // Alors on le supprime car il n'y a pas eu de changement
                             remove(current_file_list->paths[i]);
                             printf("has been removed");
                         } else {
-                            printf("ici");
+                            //Sinon on le remplace dans le backup_log
 
                             backup_file(current_file_list->paths[i]);
 
@@ -183,6 +187,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
                             char backup[1024];
                             printf("backupppp : %s", backup_dir);
                             snprintf(backup, sizeof(backup), "%s/", backup_dir);
+
                             log->path = PathSplitting(current_file_list->paths[i], backup);
                             for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
                                 log->md5[j] = md5[j];
@@ -208,20 +213,15 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
 
             }
-
+            // Si le fichier n'est pas présent dans le backup_log il faut le rajouter
             if (isExisiting == 0) {
                 log_element *log = malloc(sizeof(log_element));
 
                 char backup[1024];
-                printf("backupppp : %s", backup_dir);
+
                 snprintf(backup, sizeof(backup), "%s/", backup_dir);
                 log->path = PathSplitting(current_file_list->paths[i], backup);
 
-
-                time_t t = time(NULL);
-                struct tm tm = *localtime(&t);
-                char date[1024];
-                snprintf(date, sizeof(date), "%d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
                 log->date = date;
                 struct stat statbuff;
 
@@ -242,6 +242,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
 
         }
+        //On copie le backup_file dans
         char incrementalbackupfile[1024];
         snprintf(incrementalbackupfile, sizeof(incrementalbackupfile), "%s/.backup_log.txt", incremental_backup);
         FILE *d =fopen(incrementalbackupfile,"w");
@@ -423,22 +424,22 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
             if (access(restorePath, F_OK) == -1) {// Et si il n'existe pas dans le dossier de restauration
                 mkdir(restorePath, 0777);
             }
-        }
+        } else {
+            Chunk * chunks = NULL;
+            int chunk_count = 0;
+            FILE* file = fopen(completePath,"rb");
+            if (!file) {
+                perror("Could not open backup id");
+                exit(EXIT_FAILURE);
+            }
+            undeduplicate_file(file, &chunks, &chunk_count);
+            fclose(file);
 
-        Chunk * chunks = NULL;
-        int chunk_count = 0;
-        FILE* file = fopen(completePath,"rb");
-        if (!file) {
-            perror("Could not open backup id");
-            exit(EXIT_FAILURE);
+            for (int i = 0; i < chunk_count; i++) {
+                printf("%s", (char *)chunks[i].data);
+            }
+            write_restored_file(restorePath, chunks, chunk_count);
         }
-        undeduplicate_file(file, &chunks, &chunk_count);
-        fclose(file);
-        FILE*file1 = fopen(restorePath,"wb");
-        for (int i = 0; i < chunk_count; i++) {
-            fprintf(file1, "%s", (char *)chunks[i].data);
-        }
-
 
         if (log == logList->tail) {
             log = NULL;
@@ -448,5 +449,21 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
 
     }
 
+
+}
+// Fonction permettant de lister les différentes sauvegardes présentes dans la destination
+void list_backups(const char *backup_dir) {
+    PathList* list_of_files = list_files(backup_dir);
+    if (list_of_files == NULL) {
+        perror("Could not list backup files");
+        exit(EXIT_FAILURE);
+    } else {
+        printf("Voici les backups disponibles : \n");
+        for (int i = 0; i < list_of_files->count; i++) {
+            char * temp_char = PathSplitting(list_of_files->paths[i], (char*)backup_dir);
+            printf("%s\n", temp_char);
+            free(temp_char);
+        }
+    }
 
 }

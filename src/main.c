@@ -150,17 +150,17 @@ int main(int argc, char *argv[]) {
     }
 
 
-    if (options.d_port <= 0 || options.d_port > 65535) {
-        fprintf(stderr, "Erreur : Numéro de port destination invalide\n");
-        free_options(&options);
-        return 1;
-    }
-
-    if (options.s_port <= 0 || options.s_port > 65535) {
-        fprintf(stderr, "Erreur : Numéro de port source invalide\n");
-        free_options(&options);
-        return 1;
-    }
+    // if (options.d_port <= 0 || options.d_port > 65535) {
+    //     fprintf(stderr, "Erreur : Numéro de port destination invalide\n");
+    //     free_options(&options);
+    //     return 1;
+    // }
+    //
+    // if (options.s_port <= 0 || options.s_port > 65535) {
+    //     fprintf(stderr, "Erreur : Numéro de port source invalide\n");
+    //     free_options(&options);
+    //     return 1;
+    // }
     
     if (options.backup_flag) {
         if (!options.source_path || !options.dest_path) {
@@ -185,6 +185,15 @@ int main(int argc, char *argv[]) {
 
     }
 
+    if (options.list_backups_flag) {
+        if (!options.dest_path) {
+            fprintf(stderr, "Erreur : Le chemin destination est requis pour la restauration\n");
+            free_options(&options);
+            return 1;
+        }
+        list_backups(options.dest_path);
+
+    }
 
     // Vérification et affichage du mode dry_run (simulation sans exécution réelle)
     if (options.dry_run_flag) {

@@ -109,13 +109,13 @@ log_t *read_backup_log(const char *logfile) {
 
                 if (line[i] == ';') {
                     Inner++;
-                } else if (Inner == 1) {
+                } else if (Inner == 2) {
                     md5_str[md5Occurence] = line[i];
                     md5Occurence++;
                 } else if (Inner == 0) {
                     path[pathOccurence] = line[i];
                     pathOccurence++;
-                } else if (Inner == 2) {
+                } else if (Inner == 1) {
                     date[dateOccurence] = line[i];
                     dateOccurence++;
                 }
@@ -253,6 +253,7 @@ void update_backup_log(const log_element *element, const char *filename) {
                 // }
                 printf("%s\n", path);
                 printf("%s\n", element->path);
+                printf("%s\n", element->path);
 
                 if (memcmp(md5_bytes, element->md5, MD5_DIGEST_LENGTH) != 0) {
                     // Le MD5 a changé, mettre à jour la ligne
@@ -305,10 +306,12 @@ void write_log_element( log_element *elt, const char *logfile) {
         return;
     }
     fprintf(file, "%s;", elt->path);
+    fprintf(file, "%s;", elt->date);
     for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
         fprintf(file, "%02x", elt->md5[i]);
     }
-    fprintf(file, ";%s\n", elt->date);
+    fprintf(file, "\n");
+
     fclose(file);
 }
 
