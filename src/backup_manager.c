@@ -50,6 +50,7 @@ char * reversePath(char * path) {
     for (int i = 0; i < strlen(path); i++) {
         result[i] = path[strlen(path) - i - 1];
     }
+    result[strlen(path)] = '\0';
     return result;
 }
 
@@ -60,8 +61,6 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     */
 
     struct stat stbuff;
-
-
 
 
     DIR* dir = opendir(backup_dir);
@@ -76,15 +75,15 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
     if (access(path, F_OK) == -1) {
 
-        char completeBackup[1024];
-        snprintf(completeBackup, sizeof(completeBackup), "%s/%s", backup_dir, "fullbackup");
-        mkdir(completeBackup,0777);
+        char complete_backup[1024];
+        snprintf(complete_backup, sizeof(complete_backup), "%s/%s", backup_dir, "fullbackup");
+        mkdir(complete_backup,0777);
 
-        copy_file(source_dir, completeBackup);
+        copy_file(source_dir, complete_backup);
 
         FILE* backup_log = fopen(path, "w");
 
-        PathList *listOfPath = list_files(completeBackup);
+        PathList *listOfPath = list_files(complete_backup);
 
         for (int i = 0; i < listOfPath->count; i++) {
             log_element *log = malloc(sizeof(log_element));
@@ -293,8 +292,6 @@ void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_cou
     }
     fclose(file);
 
-
-
 }
 
 
@@ -378,15 +375,18 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
 
         char * temp = reversePath((char*)backup_id);
         char *temp1 = shortFirstDelimiter(temp);
-
+        free(temp);
         char *temp2 = reversePath(temp1);
+        free(temp1);
         char completePath[1024]; // Je concatène les chemins pour avoir un chemin absolue sur les fichiers du backup_log
         snprintf(completePath, sizeof(completePath), "%s/%s", temp2,log->path);
+        free(temp2);
 
         printf("complete path : %s\n", completePath);
         //Je détermine si le fichier fait partie de la sauvegarde complète
         char restorePath[1024];
-        snprintf(restorePath, sizeof(restorePath), "%s/%s", restore_dir, log->path);
+        char * temp3 = shortFirstDelimiter((char*)log->path)
+        snprintf(restorePath, sizeof(restorePath), "%s/%s", restore_dir, shortFirstDelimiter((char*)log->path));
         if (log->path[0] == 'f') {
             struct stat statbuff;
             stat(completePath, &statbuff);
@@ -395,14 +395,23 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
                     mkdir(restorePath, 0777);
                 }
             }else { // Sinon on copie le fichier dans le dossier.
+                printf("%s\n", completePath);
+                printf("%s\n", restorePath);
                 FILE *d =fopen(restorePath,"w");
                 FILE *f =fopen(completePath,"r");
                 int c;
+                if (!d) {
+                    perror("Could not open d");
+                }
+                if (!f) {
+                    perror("Could not open f");
+                }
                 while ((c = fgetc(f)) != EOF){
                     fputc(c,d);
                 }
                 fclose(f);
                 fclose(d);
+
             }
 
         } else { //Le fichier ne fait pas partie de la sauvegarde complète, il est alors dédupliqué
@@ -420,6 +429,12 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
             }
             // write_restored_file(restorePath, chunks, chunk_count);
         }
+        if (log == logList->tail) {
+            log = NULL;
+        } else {
+            log = log->next;
+        }
+
     }
 
 
