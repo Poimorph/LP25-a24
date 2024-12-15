@@ -5,8 +5,40 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include "file_handler.h"
+
+#include <backup_manager.h>
+
 #include "deduplication.h"
 
+int hex_to_int(char c) {
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+
+    }
+    if (c >= 'a' && c <= 'f') {
+        return c - 'a' + 10;
+    }
+    if (c >= 'A' && c <= 'F') {
+        return c - 'A' + 10;
+    }
+    return -1;
+}
+
+void md5_hex_to_bytes(const char * hex_md5, unsigned char * md5_bytes) {
+    if (strlen(hex_md5) != 32) {
+        fprintf(stderr, "md5_hex_to_bytes: Invalid MD5 string\n");
+        return;
+    }
+    for (int i = 0; i < 16; i++) {
+        int high = hex_to_int(hex_md5[i*2]);
+        int low = hex_to_int(hex_md5[i*2+1]);
+        if (high == -1 || low == -1) {
+            fprintf(stderr, "md5_hex_to_bytes: Invalid MD5 string\n");
+            return;
+        }
+        md5_bytes[i] = (high * 16) + low;
+    }
+}
 // Fonction permettant de lire un élément du fichier .backup_log
 log_t *read_backup_log(const char *logfile) {
 	/* Implémenter la logique pour la lecture d'une ligne du fichier ".backup_log"

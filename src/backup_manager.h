@@ -10,6 +10,11 @@
 #include <time.h>
 #include <sys/stat.h>
 
+
+//Fonction pr retirer le premier dossier d'un chemin
+char * shortFirstDelimiter(char * path);
+
+
 // Fonction pour créer un nouveau backup incrémental
 void create_backup(const char *source_dir, const char *backup_dir);
 // Fonction pour restaurer une sauvegarde
