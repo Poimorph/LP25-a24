@@ -31,6 +31,28 @@ typedef struct {
 } BackupOptions;
 
 
+void print_usage(const char *program_name) {
+    printf("Usage: %s [options]\n", program_name);
+    printf("Options:\n");
+    printf("  --backup       Effectuer une sauvegarde\n");
+    printf("  --restore      Restaurer une sauvegarde\n");
+    printf("  --list-backups Lister les sauvegardes existantes\n");
+    printf("  --dry-run      Simuler les opérations sans les exécuter\n");
+    printf("  --verbose      Afficher des informations détaillées\n");
+    printf("  --d-server IP  Adresse IP du serveur de destination\n");
+    printf("  --d-port PORT  Port du serveur de destination\n");
+    printf("  --s-server IP  Adresse IP du serveur source\n");
+    printf("  --s-port PORT  Port du serveur source\n");
+    printf("  --dest PATH    Chemin du dossier de destination\n");
+    printf("  --source PATH  Chemin du dossier source\n");
+}
+
+void free_options(BackupOptions *options) {
+        free(options->d_server);
+        free(options->s_server);
+        free(options->dest_path);
+        free(options->source_path);
+    }
 
 int main(int argc, char *argv[]) {
     // tests :
@@ -44,7 +66,9 @@ int main(int argc, char *argv[]) {
 
     // initialisation des options
     BackupOptions options = {0};
-    //
+    options.d_port = -1;  // Valeur par défaut invalide
+    options.s_port = -1;  // Valeur par défaut invalide
+    
     // // définition des options longues
     struct option long_options[] = {
         {"backup",        no_argument,       &options.backup_flag,        1},
@@ -61,7 +85,7 @@ int main(int argc, char *argv[]) {
         {0, 0, 0, 0}
     };
 
-
+    
 
     // Gestions des options
     int option_index = 0;
@@ -75,7 +99,7 @@ int main(int argc, char *argv[]) {
                 break;
             case 'd':
                 printf("Destination server IP: %s (NETWORK FEATURE NOT YET COMPLETED)\n", optarg);
-                options.d_server = optarg;
+                options.d_server = strdup(optarg);
                 break;
             case 'D':
                 printf("Destination server port: %s (NETWORK FEATURE NOT YET COMPLETED)\n", optarg);
@@ -83,7 +107,7 @@ int main(int argc, char *argv[]) {
                 break;
             case 's':
                 printf("Source server IP: %s (NETWORK FEATURE NOT YET COMPLETED)\n", optarg);
-                options.s_server = optarg;
+                options.s_server = strdup(optarg);
                 break;
             case 'S':
                 printf("Source server port: %s (NETWORK FEATURE NOT YET COMPLETED)\n", optarg);
@@ -91,36 +115,76 @@ int main(int argc, char *argv[]) {
                 break;
             case 'e':
                 printf("Destination path: %s\n", optarg);
-                options.dest_path = optarg;
+                options.dest_path = strdup(optarg);
                 break;
             case 'o':
                 printf("Source path: %s\n", optarg);
-                options.source_path = optarg;
+                options.source_path = strdup(optarg);
                 break;
             default:
-                printf(argv[0]);
+                print_usage(argv[0]);
+                free_options(&options);
                 return 1;
         }
     }
 
+
+    // gestion des erreurs :
+
+    // Vérification du nombre d'options mutuellement exclusives
     int options_index = options.backup_flag + options.restore_flag + options.list_backups_flag;
 
-    if (options_index > 1 || options_index == 0) { //Si l'utilisateur rentre plusieurs options, lance une erreur
-        perror("Mauvais nombres d'arguments");
+    if (options_index > 1) {
+        fprintf(stderr, "Erreur : Vous ne pouvez spécifier qu'une seule action principale (backup, restore, list-backups)\n");
+        print_usage(argv[0]);
+        free_options(&options);
         return 1;
     }
 
-    // Vérifie et affiche l'opération sélectionnée
+    // Si aucune action principale n'est spécifiée
+    if (options_index == 0) {
+        fprintf(stderr, "Erreur : Aucune action principale spécifiée\n");
+        print_usage(argv[0]);
+        free_options(&options);
+        return 1;
+    }
+
+
+    if (options.d_port <= 0 || options.d_port > 65535) {
+        fprintf(stderr, "Erreur : Numéro de port destination invalide\n");
+        free_options(&options);
+        return 1;
+    }
+
+    if (options.s_port <= 0 || options.s_port > 65535) {
+        fprintf(stderr, "Erreur : Numéro de port source invalide\n");
+        free_options(&options);
+        return 1;
+    }
+    
     if (options.backup_flag) {
-        printf("Opération de sauvegarde sélectionnée %s, %s\n", argv[2], argv[3]);
-        create_backup(argv[2], argv[3]);
-    } else if (options.restore_flag) {
-        printf("Opération de restauration sélectionnée\n");
-        restore_backup(argv[2], argv[3]);
-    } else if (options.list_backups_flag) {
-        printf("Opération de liste des sauvegardes sélectionnée\n");
+        if (!options.source_path || !options.dest_path) {
+            fprintf(stderr, "Erreur : Les chemins source et destination sont requis pour la sauvegarde\n");
+            free_options(&options);
+            return 1;
+        }
+
+        printf("Exécution de la sauvegarde de %s vers %s\n",options.source_path, options.dest_path);
+        create_backup(options.source_path,options.dest_path);
+    }
+
+    if (options.restore_flag) {
+        if (!options.source_path || !options.dest_path) {
+            fprintf(stderr, "Erreur : Les chemins source et destination sont requis pour la restauration\n");
+            free_options(&options);
+            return 1;
+        }
+
+        printf("Restauration de %s vers %s\n",options.source_path, options.dest_path);
+        restore_backup(options.source_path,options.dest_path);
 
     }
+
 
     // Vérification et affichage du mode dry_run (simulation sans exécution réelle)
     if (options.dry_run_flag) {
@@ -132,6 +196,9 @@ int main(int argc, char *argv[]) {
         printf("Verbose mode enabled\n");
     }
 
+
+    // Libération de la mémoire
+    free_options(&options);
     return EXIT_SUCCESS;
 }
 
