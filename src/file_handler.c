@@ -192,46 +192,86 @@ void update_backup_log(const log_element *element, const char *filename) {
     char line[1024];
     long pos = 0;
     int found = 0;
-
+    unsigned char md5_bytes[MD5_DIGEST_LENGTH];
     while (fgets(line, sizeof(line), file)) {
         // Sauvegarder la position actuelle du fichier
         pos = ftell(file);
 
         // Supprimer le saut de ligne final
         line[strcspn(line, "\n")] = 0;
+        if (strlen(line) != 0) {
+            // Diviser la ligne en 3 parties : chemin, md5 et date
+            unsigned char md5_str[MD5_DIGEST_LENGTH*2];
+            char path[1024];
+            char date[1024];
 
-        // Diviser la ligne en 3 parties : chemin, md5 et date
-        char *path = strtok(line, ";");
-        char *md5_str = strtok(NULL, ";");
+            int Inner = 0;
+            int md5Occurence = 0;
+            int pathOccurence = 0;
+            int dateOccurence = 0;
 
-        if (path && md5_str && strcmp(shortFirstDelimiter(path), shortFirstDelimiter(element->path))== 0) {
-            found = 1;
 
-            // Vérifier si le MD5 a changé
-            char element_md5_str[MD5_DIGEST_LENGTH * 2 + 1] = {0};
-            for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-                sprintf(&element_md5_str[i * 2], "%02x", element->md5[i]);
+            for (int i = 0; i < strlen(line); i++) {
+
+                if (line[i] == ';') {
+                    Inner++;
+                } else if (Inner == 1) {
+                    md5_str[md5Occurence] = line[i];
+                    md5Occurence++;
+                } else if (Inner == 0) {
+                    path[pathOccurence] = line[i];
+                    pathOccurence++;
+                } else if (Inner == 2) {
+                    date[dateOccurence] = line[i];
+                    dateOccurence++;
+                }
             }
 
-            if (strcmp(md5_str, element_md5_str) != 0) {
-                // Le MD5 a changé, mettre à jour la ligne
-                fseek(file, pos - strlen(line) - 1, SEEK_SET);
-                fprintf(file, "%s;", element->path);
-		    fwrite(element->md5, 1, MD5_DIGEST_LENGTH, file);
-                fprintf(file, ";%s\n", element->date);
+            path[pathOccurence] = '\0';
+            date[dateOccurence] = '\0';
+            md5_str[md5Occurence] = '\0';
+
+            // on convertie le md5 en `unsigned char`
+
+
+            md5_hex_to_bytes(md5_str, md5_bytes);
+
+            char originalpath[1024];
+            snprintf(originalpath, sizeof(originalpath), "%s", element->path);
+
+            if (strcmp(shortFirstDelimiter(path), shortFirstDelimiter((char*)element->path)) == 0) {
+                found = 1;
+
+                // // Vérifier si le MD5 a changé
+                // char element_md5_str[MD5_DIGEST_LENGTH * 2 + 1] = {0};
+                // for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+                //     sprintf(&element_md5_str[i * 2], "%02x", element->md5[i]);
+                // }
+                printf("%s\n", path);
+                printf("%s\n", element->path);
+                if (memcmp(md5_bytes, element->md5, MD5_DIGEST_LENGTH) != 0) {
+                    // Le MD5 a changé, mettre à jour la ligne
+                    fseek(file, pos - strlen(line) - 1, SEEK_SET);
+                    fprintf(file, "%s;", originalpath);
+                    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+                        fprintf(file, "%02x", md5_bytes[i]);
+                    }
+                    fprintf(file, ";%s\n", element->date);
+                }
+                break;
             }
-            break;
         }
-    }
 
+    }
     if (!found) {
         // Ajouter le nouvel élément à la fin
         fseek(file, 0, SEEK_END);
         fprintf(file, "%s;", element->path);
-	fwrite(element->md5, 1, MD5_DIGEST_LENGTH, file);
+        for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+            fprintf(file, "%02x", md5_bytes[i]);
+        }
         fprintf(file, ";%s\n", element->date);
     }
-
     fclose(file);
 }
 /** 

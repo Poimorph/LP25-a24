@@ -276,11 +276,7 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
 
         // Vérifier si le MD5 existe déjà dans la table de hachage
         int existing_index = find_md5(hash_table, md5);
-        if (existing_index != -1) {
-            // Le chunk existe déjà, pas besoin de l'ajouter
-            free(buffer);
-            continue;
-        }
+
 
         if (existing_index == -1) {
             memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
@@ -310,7 +306,7 @@ void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
     // on détermine si le fichier est valide
     if (!file || !chunks || !chunk_count) {
         fprintf(stderr, "Paramètres invalides pour undeduplicate_file\n");
-        return NULL;}
+        return;}
 
     // Lire le nombre total de chunks depuis le fichier
     if (fread(chunk_count, sizeof(int), 1, file) != 1) {
@@ -338,6 +334,7 @@ void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
         // Lire la taille des données du chunk (0 pour un chunk référencé)
         size_t data_size;
         if (fread(&data_size, sizeof(size_t), 1, file) != 1) {
+
             perror("Erreur lors de la lecture de la taille du chunk");
             free(*chunks);
             *chunks = NULL;

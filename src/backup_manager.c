@@ -180,22 +180,21 @@ void create_backup(const char *source_dir, const char *backup_dir) {
                             remove(CurrentFilelist->paths[i]);
                             printf("has been removed");
                         } else {
-                            Chunk * chunks;
-                            Md5Entry *entry;
-                            int chunk_count = (int)deduplicate_file(fileLocal, chunks, entry);
-                            write_backup_file(CurrentFilelist->paths[i], chunks, chunk_count);
-                            log_element* log_element = malloc(sizeof(log_element));
-                            log_element->path = relative;
+
+                            backup_file(CurrentFilelist->paths[i]);
+
+                            log_element* log = malloc(sizeof(log_element));
+                            log->path = relative;
                             for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
-                                log_element->md5[j] = md5[j];
+                                log->md5[j] = md5[j];
                             }
                             time_t t = time(NULL);
                             struct tm tm = *localtime(&t);
                             char date[1024];
                             snprintf(date, sizeof(date), "%d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-                            log_element->date = date;
-                            update_backup_log(log_element, path);
-                            free(log_element);
+                            log->date = date;
+                            update_backup_log(log, path);
+                            free(log);
 
                         }
 
@@ -242,16 +241,12 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_count) {
     /*
     */
-    Chunk chunk[chunk_count];
-    for (int i = 0; i < chunk_count; i++) {
-        chunk[i] = chunks[i];
-    }
     FILE* file = fopen(output_filename, "wb");
     if (!file) {
         perror("Cannto create %s\n");
     }
     else {
-        fwrite(chunk, sizeof(Chunk), chunk_count, file);
+        fwrite(chunks, sizeof(Chunk), chunk_count, file);
     }
     fclose(file);
 
@@ -266,8 +261,18 @@ void backup_file(const char *filename) {
     */
 
     //Création des éléments pour la récéption des données
-    Chunk* chunks;
-    Md5Entry* entry;
+    struct stat statbuff;
+    stat(filename, &statbuff);
+    int nbr_chunk = 0;
+    if (statbuff.st_size % CHUNK_SIZE == 0) {
+        nbr_chunk = (int)statbuff.st_size / CHUNK_SIZE;
+    } else {
+        nbr_chunk = (int)statbuff.st_size / CHUNK_SIZE;
+        nbr_chunk++;
+    }
+
+    Chunk * chunks = malloc(nbr_chunk * sizeof(Chunk));
+    Md5Entry entry[HASH_TABLE_SIZE];
     FILE* file = fopen(filename, "rb");
     //Si le fichier n'éxiste pas
     if (!file) {
@@ -279,7 +284,7 @@ void backup_file(const char *filename) {
         fclose(file);
         if (chunks != NULL) {
             //On écrit les chunks uniques dans le fichier de backup
-            write_backup_file(filename,chunks, 1024);
+            write_backup_file(filename,chunks, nbr_chunk);
         }
     }
 
@@ -298,7 +303,6 @@ void write_restored_file(const char *output_filename, Chunk *chunks, int chunk_c
     } else {
 
         Chunk **chunk = &chunks;
-        undeduplicate_file(file, chunk, &chunk_count);
         fwrite(*chunk, sizeof(Chunk), chunk_count, file);
 
     }
