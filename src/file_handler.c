@@ -25,6 +25,7 @@ int hex_to_int(char c) {
 }
 
 void md5_hex_to_bytes(const char * hex_md5, unsigned char * md5_bytes) {
+    printf("%ld, ", strlen(hex_md5));
     if (strlen(hex_md5) != 32) {
         fprintf(stderr, "md5_hex_to_bytes: Invalid MD5 string\n");
         return;
@@ -94,6 +95,7 @@ log_t *read_backup_log(const char *logfile) {
 
         path[pathOccurence] = '\0';
         date[dateOccurence] = '\0';
+        md5_str[md5Occurence] = '\0';
         
         // on convertie le md5 en `unsigned char` 
 
@@ -129,8 +131,14 @@ log_t *read_backup_log(const char *logfile) {
         }
 
 	    // Copie directe de la chaîne MD5 en tant que tableau de caractères
-        
-        new_element->md5 = md5_bytes;
+
+        for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
+            new_element->md5[j] = md5_bytes[j];
+            printf("%02x", md5_bytes[j]);
+        }
+
+
+
 
 
         new_element->date = strdup(date);

@@ -165,8 +165,16 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
 
                         printf("%p\n", md5);
-                        printf("%s\n", (char*)BackupLogElement->md5);
-                        printf("%d\n", strcmp(md5, BackupLogElement->md5));
+                        for (int y = 0; y < MD5_DIGEST_LENGTH; y++) {
+                            printf("%02x", md5[y]);
+                        }
+                        printf("\n");
+                        for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
+                            printf("%02x", BackupLogElement->md5[j]);
+                        }
+                        printf("\n");
+                        printf("%p\n", BackupLogElement->md5);
+
 
                         if (memcmp(md5, BackupLogElement->md5, MD5_DIGEST_LENGTH) == 0) {
                             remove(CurrentFilelist->paths[i]);
