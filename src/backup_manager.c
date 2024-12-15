@@ -164,7 +164,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
                         unsigned char * md5 = md5_file(fileLocal);
 
 
-                        printf("%p\n", md5);
+
                         for (int y = 0; y < MD5_DIGEST_LENGTH; y++) {
                             printf("%02x", md5[y]);
                         }
@@ -173,7 +173,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
                             printf("%02x", BackupLogElement->md5[j]);
                         }
                         printf("\n");
-                        printf("%p\n", BackupLogElement->md5);
+
 
 
                         if (memcmp(md5, BackupLogElement->md5, MD5_DIGEST_LENGTH) == 0) {

@@ -10,7 +10,7 @@
 
 #include "deduplication.h"
 
-int hex_to_int(char c) {
+int hex_to_int(unsigned char c) {
     if (c >= '0' && c <= '9') {
         return c - '0';
 
@@ -24,12 +24,12 @@ int hex_to_int(char c) {
     return -1;
 }
 
-void md5_hex_to_bytes(const char * hex_md5, unsigned char * md5_bytes) {
-    printf("%ld, ", strlen(hex_md5));
-    if (strlen(hex_md5) != 32) {
-        fprintf(stderr, "md5_hex_to_bytes: Invalid MD5 string\n");
-        return;
-    }
+void md5_hex_to_bytes(unsigned char * hex_md5, unsigned char * md5_bytes) {
+
+    // if (strlen(hex_md5) != 32) {
+    //     fprintf(stderr, "md5_hex_to_bytes: Invalid MD5 string\n");
+    //     return;
+    // }
     for (int i = 0; i < 16; i++) {
         int high = hex_to_int(hex_md5[i*2]);
         int low = hex_to_int(hex_md5[i*2+1]);
@@ -66,103 +66,108 @@ log_t *read_backup_log(const char *logfile) {
     while (fgets(line, sizeof(line), file)) {
         // Supprimer le saut de ligne final
         line[strcspn(line, "\n")] = 0;
-        printf("%s\n", line);
-        char md5_str[MD5_DIGEST_LENGTH*2];
-        char path[1024];
-        char date[1024];
 
-        int Inner = 0;
-        int md5Occurence = 0;
-        int pathOccurence = 0;
-        int dateOccurence = 0;
+        if (strlen(line)!= 0) {
+            unsigned char md5_str[MD5_DIGEST_LENGTH*2];
+            char path[1024];
+            char date[1024];
 
-        printf("%ld\n", strlen(line));
-        for (int i = 0; i < strlen(line); i++) {
+            int Inner = 0;
+            int md5Occurence = 0;
+            int pathOccurence = 0;
+            int dateOccurence = 0;
 
-            if (line[i] == ';') {
-                Inner++;
-            } else if (Inner == 1) {
-                md5_str[md5Occurence] = line[i];
-                md5Occurence++;
-            } else if (Inner == 0) {
-                path[pathOccurence] = line[i];
-                pathOccurence++;
-            } else if (Inner == 2) {
-                date[dateOccurence] = line[i];
-                dateOccurence++;
+
+            for (int i = 0; i < strlen(line); i++) {
+
+                if (line[i] == ';') {
+                    Inner++;
+                } else if (Inner == 1) {
+                    md5_str[md5Occurence] = line[i];
+                    md5Occurence++;
+                } else if (Inner == 0) {
+                    path[pathOccurence] = line[i];
+                    pathOccurence++;
+                } else if (Inner == 2) {
+                    date[dateOccurence] = line[i];
+                    dateOccurence++;
+                }
             }
+
+            path[pathOccurence] = '\0';
+            date[dateOccurence] = '\0';
+            md5_str[md5Occurence] = '\0';
+
+            // on convertie le md5 en `unsigned char`
+
+            unsigned char md5_bytes[MD5_DIGEST_LENGTH];
+            md5_hex_to_bytes(md5_str, md5_bytes);
+
+
+
+
+
+            // Diviser la ligne en 3 parties : chemin, md5 et date
+
+            if (!path[0] || !date[0]) {
+                fprintf(stderr, "Ligne invalide dans le fichier : %s\n", line);
+                continue;
+            }
+
+
+            // Créer un nouvel élément de log
+            log_element *new_element = malloc(sizeof(log_element));
+            if (!new_element) {
+                perror("Erreur lors de l'allocation de mémoire");
+                fclose(file);
+                return NULL;
+            }
+
+
+            new_element->path = strdup(path);
+
+
+
+            if (!new_element->path) {
+                perror("Erreur lors de la copie du chemin");
+                free(new_element);
+                fclose(file);
+                return NULL;
+            }
+
+            // Copie directe de la chaîne MD5 en tant que tableau de caractères
+
+            for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
+                new_element->md5[j] = md5_bytes[j];
+            }
+
+
+
+
+
+            new_element->date = strdup(date);
+            if (!new_element->date) {
+                perror("Erreur lors de la copie de la date");
+                free((char *)new_element->path);
+                free(new_element);
+                fclose(file);
+                return NULL;
+            }
+
+            // Ajouter à la liste chaînée
+            new_element->next = NULL;
+            new_element->prev = log_list->tail;
+            if (log_list->tail) {
+                log_list->tail->next = new_element;
+            } else {
+                log_list->head = new_element;
+            }
+            log_list->tail = new_element;
         }
-
-        path[pathOccurence] = '\0';
-        date[dateOccurence] = '\0';
-        md5_str[md5Occurence] = '\0';
-        
-        // on convertie le md5 en `unsigned char` 
-
-        unsigned char md5_bytes[MD5_DIGEST_LENGTH];
-        md5_hex_to_bytes(md5_str, md5_bytes);
-
-
-        
-        // Diviser la ligne en 3 parties : chemin, md5 et date
-
-        if (!path[0] || !date[0]) {
-            fprintf(stderr, "Ligne invalide dans le fichier : %s\n", line);
-            continue;
-        }
-
-
-        // Créer un nouvel élément de log
-        log_element *new_element = malloc(sizeof(log_element));
-        if (!new_element) {
-            perror("Erreur lors de l'allocation de mémoire");
-            fclose(file);
-            return NULL;
-        }
-
-
-        new_element->path = strdup(path);
-
-        if (!new_element->path) {
-            perror("Erreur lors de la copie du chemin");
-            free(new_element);
-            fclose(file);
-            return NULL;
-        }
-
-	    // Copie directe de la chaîne MD5 en tant que tableau de caractères
-
-        for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
-            new_element->md5[j] = md5_bytes[j];
-            printf("%02x", md5_bytes[j]);
-        }
-
-
-
-
-
-        new_element->date = strdup(date);
-        if (!new_element->date) {
-            perror("Erreur lors de la copie de la date");
-            free((char *)new_element->path);
-            free(new_element);
-            fclose(file);
-            return NULL;
-        }
-
-        // Ajouter à la liste chaînée
-        new_element->next = NULL;
-        new_element->prev = log_list->tail;
-        if (log_list->tail) {
-            log_list->tail->next = new_element;
-        } else {
-            log_list->head = new_element;
-        }
-        log_list->tail = new_element;
     }
 
     fclose(file);
-    printf("%s\n", (char*)log_list->head->md5);
+
     return log_list;
 }
 
@@ -246,7 +251,9 @@ void write_log_element( log_element *elt, const char *logfile) {
         return;
     }
     fprintf(file, "%s;", elt->path);
-    fwrite(elt->md5, 1, MD5_DIGEST_LENGTH,file);
+    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+        fprintf(file, "%02x", elt->md5[i]);
+    }
     fprintf(file, ";%s\n", elt->date);
     fclose(file);
 }
