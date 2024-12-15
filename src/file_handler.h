@@ -28,7 +28,7 @@ typedef struct {
 } PathList;
 
 log_t *read_backup_log(const char *logfile);
-void update_backup_log(const char *logfile, log_t *logs);
+void update_backup_log(const log_element *element, const char *filename);
 void write_log_element(log_element *elt, const char *logfile);
 PathList *list_files(const char *directory);
 void copy_file(const char *src, const char *dest);

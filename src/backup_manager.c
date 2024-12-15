@@ -159,15 +159,16 @@ void create_backup(const char *source_dir, const char *backup_dir) {
                         FILE* fileLocal = fopen(CurrentFilelist->paths[i], "rb");
                         char backupfilePath[1024];
                         snprintf(backupfilePath, sizeof(backupfilePath), "%s/%s", backup_dir, relativeLogElement);
-                        FILE* fileBackupLog = fopen(backupfilePath, "rb");
 
 
                         unsigned char * md5 = md5_file(fileLocal);
+
+
                         printf("%p\n", md5);
                         printf("%s\n", (char*)BackupLogElement->md5);
                         printf("%d\n", strcmp(md5, BackupLogElement->md5));
-                        return;
-                        if (strcmp(md5, BackupLogElement->md5) == 0) {
+
+                        if (memcmp(md5, BackupLogElement->md5, MD5_DIGEST_LENGTH) == 0) {
                             remove(CurrentFilelist->paths[i]);
                             printf("has been removed");
                         } else {
@@ -175,6 +176,19 @@ void create_backup(const char *source_dir, const char *backup_dir) {
                             Md5Entry *entry;
                             int chunk_count = (int)deduplicate_file(fileLocal, chunks, entry);
                             write_backup_file(CurrentFilelist->paths[i], chunks, chunk_count);
+                            log_element* log_element = malloc(sizeof(log_element));
+                            log_element->path = relative;
+                            for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
+                                log_element->md5[j] = md5[j];
+                            }
+                            time_t t = time(NULL);
+                            struct tm tm = *localtime(&t);
+                            char date[1024];
+                            snprintf(date, sizeof(date), "%d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+                            log_element->date = date;
+                            update_backup_log(log_element, path);
+                            free(log_element);
+
                         }
 
                     }
@@ -195,6 +209,16 @@ void create_backup(const char *source_dir, const char *backup_dir) {
             free(relative);
 
         }
+        char incrementalbackupfile[1024];
+        snprintf(incrementalbackupfile, sizeof(incrementalbackupfile), "%s/.backup_log.txt", incrementalBackup);
+        FILE *d =fopen(incrementalbackupfile,"w");
+        FILE *f =fopen(path,"r");
+        int c;
+        while ((c = fgetc(f)) != EOF){
+            fputc(c,d);
+        }
+        fclose(f);
+        fclose(d);
 
     }
 
