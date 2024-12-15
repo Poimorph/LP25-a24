@@ -218,7 +218,6 @@ unsigned char *md5_file(FILE *file){
  * @return size_t Nombre total de chunks traités (y compris les duplicatas). Retourne -1 en cas d'erreur.
  * 
  *  * @note 
- * - La taille de chaque chunk est définie par la constante `HASH_TABLE_SIZE`.
  * - Les buffers de données pour les chunks sont alloués dynamiquement. Il est de la responsabilité 
  *   de l'appelant de libérer ces buffers après utilisation.
  */
@@ -244,6 +243,15 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     
     
     size_t chunk_count = (file_size + CHUNK_SIZE - 1) / CHUNK_SIZE; // Nombre de chunks nécessaires
+
+    
+    chunks=realloc(chunks,sizeof(Chunk)*chunk_count);
+
+    if(!chunks){
+        perror("Erreur lors de la reallocation de chunks");
+        return -1;
+
+    }
     
     for (size_t i = 0; i < chunk_count; i++) {
         size_t bytes_to_read = CHUNK_SIZE;
@@ -271,8 +279,6 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
         unsigned char md5[MD5_DIGEST_LENGTH];
         compute_md5(buffer, bytes_read, md5);
 
-        // Ajouter le MD5 dans la table de hachage
-        add_md5(hash_table, md5, i);
 
         // Vérifier si le MD5 existe déjà dans la table de hachage
         int existing_index = find_md5(hash_table, md5);
@@ -281,6 +287,8 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
         if (existing_index == -1) {
             memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
             chunks[i].data = buffer;
+            // Ajouter le MD5 dans la table de hachage
+            add_md5(hash_table, md5, i);
         } else {
             chunks[i].data = (void *)(intptr_t)existing_index; // Stocker l'indice du chunk existant dans data
             memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);

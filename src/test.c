@@ -259,7 +259,7 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     
     size_t chunk_count = (file_size + CHUNK_SIZE - 1) / CHUNK_SIZE; // Nombre de chunks nécessaires
 
-    realloc(chunks,sizeof(Chunk)*chunk_count);
+    chunks=realloc(chunks,sizeof(Chunk)*chunk_count);
 
     if(!chunks){
         perror("pb de reallocation");
@@ -368,12 +368,6 @@ void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_cou
                 return;
             }
 
-            // Write the index of the referenced chunk
-            if (fwrite(&referenced_index, sizeof(int), 1, file) != 1) {
-                perror("Error writing referenced chunk index");
-                fclose(file);
-                return;
-            }
         } else {
             // Chunk avec des données réelles : écrire la taille et les données
             size_t data_size = strlen((char *)chunks[i].data) + 1; // Inclure le caractère nul
@@ -403,7 +397,7 @@ void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
     // on détermine si le fichier est valide
     if (!file || !chunks || !chunk_count) {
         fprintf(stderr, "Paramètres invalides pour undeduplicate_file\n");
-        return NULL;}
+        return;}
 
     // Lire le nombre total de chunks depuis le fichier
     if (fread(chunk_count, sizeof(int), 1, file) != 1) {
