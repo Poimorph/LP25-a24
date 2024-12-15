@@ -27,6 +27,8 @@ typedef struct {
     int capacity;    // Capacité actuelle du tableau
 } PathList;
 
+int hex_to_int(char c);
+void md5_hex_to_bytes(const char * hex_md5, unsigned char * md5_bytes);
 log_t *read_backup_log(const char *logfile);
 void update_backup_log(const log_element *element, const char *filename);
 void write_log_element(log_element *elt, const char *logfile);

@@ -12,7 +12,6 @@
 
 int main(int argc, char *argv[]) {
     // tests :
-    // testMD5Compute();
 
     create_backup(argv[1], argv[2]);
     // Analyse des arguments de la ligne de commande

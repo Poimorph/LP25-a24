@@ -39,6 +39,7 @@ void md5_hex_to_bytes(const char * hex_md5, unsigned char * md5_bytes) {
         md5_bytes[i] = (high * 16) + low;
     }
 }
+
 // Fonction permettant de lire un élément du fichier .backup_log
 log_t *read_backup_log(const char *logfile) {
 	/* Implémenter la logique pour la lecture d'une ligne du fichier ".backup_log"
@@ -65,7 +66,7 @@ log_t *read_backup_log(const char *logfile) {
         // Supprimer le saut de ligne final
         line[strcspn(line, "\n")] = 0;
         printf("%s\n", line);
-        char md5_str[1024];
+        char md5_str[MD5_DIGEST_LENGTH*2];
         char path[1024];
         char date[1024];
 
@@ -91,19 +92,22 @@ log_t *read_backup_log(const char *logfile) {
             }
         }
 
-        md5_str[md5Occurence] = '\0';
         path[pathOccurence] = '\0';
         date[dateOccurence] = '\0';
-        // Diviser la ligne en 3 parties : chemin, md5 et date
+        
+        // on convertie le md5 en `unsigned char` 
 
-        printf("%p\n", (unsigned char *)md5_str);
+        unsigned char md5_bytes[MD5_DIGEST_LENGTH];
+        md5_hex_to_bytes(md5_str, md5_bytes);
+
+
+        
+        // Diviser la ligne en 3 parties : chemin, md5 et date
 
         if (!path[0] || !date[0]) {
             fprintf(stderr, "Ligne invalide dans le fichier : %s\n", line);
             continue;
         }
-
-
 
 
         // Créer un nouvel élément de log
@@ -114,7 +118,9 @@ log_t *read_backup_log(const char *logfile) {
             return NULL;
         }
 
+
         new_element->path = strdup(path);
+
         if (!new_element->path) {
             perror("Erreur lors de la copie du chemin");
             free(new_element);
@@ -122,9 +128,9 @@ log_t *read_backup_log(const char *logfile) {
             return NULL;
         }
 
-	// Copie directe de la chaîne MD5 en tant que tableau de caractères
-        strncpy((char *)new_element->md5, (char *)md5_str, MD5_DIGEST_LENGTH);
-        // new_element->md5 = md5_str;
+	    // Copie directe de la chaîne MD5 en tant que tableau de caractères
+        
+        new_element->md5 = md5_bytes;
 
 
         new_element->date = strdup(date);
