@@ -206,6 +206,10 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
             }
 
+            if (isExisiting == 0) {
+
+            }
+
             free(relative);
 
         }
