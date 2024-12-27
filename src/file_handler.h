@@ -88,7 +88,7 @@ log_t *read_backup_log(const char *logfile);
  * 
  * @note La fonction ouvre le fichier en mode écriture et le réécrit entièrement.
  */
-void update_backup_log(const log_element *element, const char *filename);
+void update_backup_log(const log_element *elt, const char *filename, const char * dirname);
 /**
  * @brief Écrit un élément de log dans le fichier `.backup_log`.
  * 

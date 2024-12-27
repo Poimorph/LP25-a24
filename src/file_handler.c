@@ -124,7 +124,7 @@ log_t *read_backup_log(const char *logfile) {
             path[pathOccurence] = '\0';
             date[dateOccurence] = '\0';
             md5_str[md5Occurence] = '\0';
-            printf("%s", path);
+            printf("%s", md5_str);
             // on convertie le md5 en `unsigned char`
 
             unsigned char md5_bytes[MD5_DIGEST_LENGTH];
@@ -215,75 +215,94 @@ log_t *read_backup_log(const char *logfile) {
  * 
  * @note La fonction ouvre le fichier en mode écriture et le réécrit entièrement.
  */
-void update_backup_log(const log_element *element, const char *filename) {
-    if (!element || !filename) {
+void update_backup_log(const log_element *elt, const char *filename, const char * dirname) {
+    if (!elt || !filename) {
         fprintf(stderr, "Paramètres invalides pour update_backup_log.\n");
         return;
     }
-    log_t *log_List = read_backup_log(filename);
-    FILE *file = fopen(filename, "w");
+    
+    log_t * backup_log_list = read_backup_log(filename);
+    log_element * backup_element = backup_log_list->head;
+    FILE* file = fopen(filename, "w");
     fclose(file);
-    if (!file) {
-        perror("Erreur lors de l'ouverture du fichier pour mise à jour");
-        return;
-    }
-
-    char line[1024];
-    long pos = 0;
+    char * temp1 = reversePath(filename);
+    char * temp2 = shortFirstDelimiter(temp1);
+    char * temp3 = reversePath(temp2);
+    char absolute_elt_path[1024];
+    char relative_elt_path[1024];
+    snprintf(absolute_elt_path, sizeof(absolute_elt_path), "%s/%s/%s", temp3, dirname, elt->path);
+    snprintf(relative_elt_path, sizeof(relative_elt_path), "%s/%s", dirname, elt->path);
+    printf("@@%s@@", absolute_elt_path);
+    struct stat statbuff;
+    
+    printf("%d", stat(absolute_elt_path, &statbuff));
+    free(temp1);
+    free(temp2);
+    free(temp3);
+    int changed = 0;
     int found = 0;
-    unsigned char md5_bytes[MD5_DIGEST_LENGTH];
+    while (backup_element != NULL) {
+        
+        char * temp_backup_log_element_path = shortFirstDelimiter(backup_element->path);
 
-    log_element *logElement = log_List->head;
-    while (logElement != NULL) {
-        // Sauvegarder la position actuelle du fichier
-        char *path = strdup(element->path);
-        if (strlen(logElement->path) != 0) {
-            // Diviser la ligne en 3 parties : chemin, md5 et date
-
-            // char * path = malloc(sizeof(char) * strlen(logElement->path));
-
-
-            if (strcmp(shortFirstDelimiter((char*)logElement->path), shortFirstDelimiter((char*)element->path)) == 0) {
-                found = 1;
-
-                // // Vérifier si le MD5 a changé
-                // char element_md5_str[MD5_DIGEST_LENGTH * 2 + 1] = {0};
-                // for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-                //     sprintf(&element_md5_str[i * 2], "%02x", element->md5[i]);
-                // }
-                printf("%s\n", path);
-                printf("%s\n", element->path);
-                printf("%s\n", element->path);
-
-                if (memcmp(md5_bytes, element->md5, MD5_DIGEST_LENGTH) != 0) {
-                    // Le MD5 a changé, mettre à jour la ligne
-                    logElement->path = path;
-                    memcpy(logElement->md5, element->md5, MD5_DIGEST_LENGTH);
-                    logElement->date = element->date;
+        
+        if (strcmp(temp_backup_log_element_path, elt->path) == 0) {
+            found = 1;
+            if (memcmp(backup_element->md5, elt->md5, MD5_DIGEST_LENGTH) != 0) {
+                
+                strcpy(elt->path, relative_elt_path);
+                write_log_element(elt, filename); 
+                
+                if (S_ISREG(statbuff.st_mode)) {
+                    
+                    backup_file(absolute_elt_path);
                 }
+                changed = 1;
 
+                
             }
-            write_log_element(logElement, filename);
+            else {
+                
+                write_log_element(backup_element, filename);
+                
+            }
+        }
+        else {
+                
+                write_log_element(backup_element, filename);
+                
+            }
 
-        }
-        if (logElement == log_List->tail) {
-            logElement = NULL;
-        }else {
-            logElement = logElement->next;
-        }
-
-        if (logElement == NULL && found == 0) {
-            log_element *new_element = malloc(sizeof(log_element));
-            new_element->path = path;
-            memcpy(new_element->md5, element->md5, MD5_DIGEST_LENGTH);
-            new_element->date = element->date;
-            write_log_element(new_element, filename);
-            free(new_element);
-        }
+        
+        free(temp_backup_log_element_path);
+        
+        
+        backup_element = backup_element->next;
+        continue;
 
     }
-    fclose(file);
-    free(log_List);
+    if (found == 0) {
+        strcpy(elt->path, relative_elt_path);
+        write_log_element(elt, filename); 
+                
+        if (S_ISREG(statbuff.st_mode)) {
+            
+            backup_file(absolute_elt_path);
+        }
+        changed = 1;
+    }
+    if (changed == 0) {
+        
+        remove(absolute_elt_path);
+    }
+    free(elt);
+    free(backup_log_list);
+    
+
+    
+
+
+    
 }
 /**
  * @brief Écrit un élément de log dans le fichier `.backup_log`.
