@@ -85,7 +85,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         // On copie tout les fichiers.
         copy_file(source_dir, complete_backup);
 
-        FILE* backup_log = fopen(path, "w");
+        FILE* backup_log = fopen(path, "wb");
         
         PathList *list_of_path = list_files(complete_backup);
 
@@ -179,8 +179,8 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         free(current_file_list);
         char backup_log_incremental[1024];
         snprintf(backup_log_incremental, sizeof(backup_log_incremental), "%s/.backup_log.txt", incremental_backup);
-        FILE *d =fopen(backup_log_incremental,"w");
-            FILE *f =fopen(path,"r");
+        FILE *d =fopen(backup_log_incremental,"wb");
+            FILE *f =fopen(path,"rb");
             int c;
             while ((c = fgetc(f)) != EOF){
                 fputc(c,d);
@@ -304,11 +304,12 @@ void write_restored_file(const char *output_filename, Chunk *chunks, int chunk_c
     if (!file) {
         perror("Cannot open file");
 
-    } else {
-
-        Chunk **chunk = &chunks;
-        fwrite(*chunk, sizeof(Chunk), chunk_count, file);
-
+    } 
+    else {
+        for (int i=0;i<chunk_count;i++){
+            fwrite(chunks[i].data, 1, CHUNK_SIZE, file);
+        }
+        fclose(file);
     }
 
 
@@ -346,7 +347,6 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
         snprintf(completePath, sizeof(completePath), "%s/%s", temp2,log->path);
         free(temp2);
 
-        printf("complete path : %s\n", completePath);
 
         char restorePath[1024];
 
@@ -368,10 +368,10 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
             }
             undeduplicate_file(file, &chunks, &chunk_count);
             fclose(file);
+            printf("\n\n");
+            for (int i=0;i<chunk_count;i++) printf("%s",(char *)chunks[i].data);
+            printf("\n\n");
 
-            for (int i = 0; i < chunk_count; i++) {
-                printf("%s", (char *)chunks[i].data);
-            }
             write_restored_file(restorePath, chunks, chunk_count);
         }
 
