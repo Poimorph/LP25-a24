@@ -45,8 +45,8 @@ void md5_hex_to_bytes(unsigned char * hex_md5, unsigned char * md5_bytes) {
     //     return;
     // }
     for (int i = 0; i < 16; i++) {
-        int high = hex_to_int(hex_md5[i*2]);
-        int low = hex_to_int(hex_md5[i*2+1]);
+        int high = hex_to_int(hex_md5[i * 2]);
+        int low = hex_to_int(hex_md5[i * 2 + 1]);
         if (high == -1 || low == -1) {
             fprintf(stderr, "md5_hex_to_bytes: Invalid MD5 string\n");
             return;
@@ -100,9 +100,9 @@ log_t *read_backup_log(const char *logfile) {
             char date[1024];
 
             int Inner = 0;
-            int md5Occurence = 0;
-            int pathOccurence = 0;
-            int dateOccurence = 0;
+            int md5_occurence = 0;
+            int path_occurence = 0;
+            int date_occurence = 0;
 
 
             for (size_t i = 0; i < strlen(line); i++) {
@@ -110,20 +110,20 @@ log_t *read_backup_log(const char *logfile) {
                 if (line[i] == ';') {
                     Inner++;
                 } else if (Inner == 2) {
-                    md5_str[md5Occurence] = line[i];
-                    md5Occurence++;
+                    md5_str[md5_occurence] = line[i];
+                    md5_occurence++;
                 } else if (Inner == 0) {
-                    path[pathOccurence] = line[i];
-                    pathOccurence++;
+                    path[path_occurence] = line[i];
+                    path_occurence++;
                 } else if (Inner == 1) {
-                    date[dateOccurence] = line[i];
-                    dateOccurence++;
+                    date[date_occurence] = line[i];
+                    date_occurence++;
                 }
             }
 
-            path[pathOccurence] = '\0';
-            date[dateOccurence] = '\0';
-            md5_str[md5Occurence] = '\0';
+            path[path_occurence] = '\0';
+            date[date_occurence] = '\0';
+            md5_str[md5_occurence] = '\0';
 
             // on convertie le md5 en `unsigned char`
             unsigned char md5_bytes[MD5_DIGEST_LENGTH];
@@ -221,9 +221,9 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
     log_element * backup_element = backup_log_list->head;
     FILE* file = fopen(filename, "w");
     fclose(file);
-    char * temp1 = reversePath((char*)filename);
-    char * temp2 = shortFirstDelimiter(temp1);
-    char * temp3 = reversePath(temp2);
+    char * temp1 = reverse_path((char *)filename);
+    char * temp2 = short_first_delimiter(temp1);
+    char * temp3 = reverse_path(temp2);
     char absolute_elt_path[1024];
     char relative_elt_path[1024];
     snprintf(absolute_elt_path, sizeof(absolute_elt_path), "%s/%s/%s", temp3, dirname, elt->path);
@@ -239,14 +239,14 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
     int found = 0;
     while (backup_element != NULL) {
         
-        char * temp_backup_log_element_path = shortFirstDelimiter((char*)backup_element->path);
+        char * temp_backup_log_element_path = short_first_delimiter((char *)backup_element->path);
 
         
         if (strcmp(temp_backup_log_element_path, elt->path) == 0) {
             found = 1;
             if (memcmp(backup_element->md5, elt->md5, MD5_DIGEST_LENGTH) != 0) {
                 
-                strcpy((char*)elt->path, relative_elt_path);
+                strcpy((char *)elt->path, relative_elt_path);
                 write_log_element((log_element*)elt, filename); 
                 
                 if (S_ISREG(statbuff.st_mode)) {
@@ -256,14 +256,12 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
                 changed = 1;
 
                 
-            }
-            else {
+            } else {
                 
                 write_log_element(backup_element, filename);
                 
             }
-        }
-        else {
+        } else {
                 
                 write_log_element(backup_element, filename);
                 
@@ -278,7 +276,7 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
 
     }
     if (found == 0) {
-        strcpy((char*)elt->path, relative_elt_path);
+        strcpy((char *)elt->path, relative_elt_path);
         write_log_element((log_element*)elt, filename); 
                 
         if (S_ISREG(statbuff.st_mode)) {
@@ -309,7 +307,7 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
  * @param elt L'élément de log à écrire (contenant le chemin, le MD5 et la date).
  * @param logfile Le chemin du fichier `.backup_log` où l'élément sera écrit.
  */
-void write_log_element( log_element *elt, const char *logfile) {
+void write_log_element(log_element *elt, const char *logfile) {
     
 	if (!elt || !logfile) {
         fprintf(stderr, "Paramètres invalides pour write_log_element.\n");
@@ -339,7 +337,7 @@ void write_log_element( log_element *elt, const char *logfile) {
  * avec un tableau dynamique pour stocker les chemins. La capacité initiale du tableau 
  * est fixée à 10 éléments.
  * 
- * @return PathList* Un pointeur vers la nouvelle liste de chemins, ou NULL en cas d'erreur d'allocation.
+ * @return PathList * Un pointeur vers la nouvelle liste de chemins, ou NULL en cas d'erreur d'allocation.
  */
 PathList *create_pathlist() {
     PathList *list = malloc(sizeof(PathList));
@@ -475,7 +473,7 @@ void copy_file(const char *src, const char * dest) {
 
         // Vérifier si l'entrée est un fichier ou un répertoire
         struct stat entry_stat;
-        if(stat(fullpath,&entry_stat)==-1){
+        if (stat(fullpath, &entry_stat) == -1) {
             perror("Erreur lors de l'appel à stat");
             continue;
         }
@@ -483,14 +481,13 @@ void copy_file(const char *src, const char * dest) {
         if (S_ISDIR(entry_stat.st_mode)) {
             mkdir(destpath, 0777);  // Créer le dossier 
             copy_file(fullpath, destpath); // Recherche les sous dossier et fichiers
-        }
-	    else{ 
+        } else{ 
             // S'il s'agit d'un fichier, on copie le contenue du fichier source dans le fichier destination que 
             // l'on crée en meme temps 
             FILE *d =fopen(destpath,"w");
             FILE *f =fopen(fullpath,"r");
             int c;
-            while ((c = fgetc(f)) != EOF){
+            while ((c = fgetc(f)) != EOF) {
                 fputc(c,d);
                 }
             fclose(f);

@@ -15,8 +15,8 @@
 
 
 //Fonction pr retirer le premier dossier d'un chemin
-char * shortFirstDelimiter(char * path);
-char * reversePath(char * path);
+char * short_first_delimiter(char * path);
+char * reverse_path(char * path);
 
 // Fonction pour créer un nouveau backup incrémental
 void create_backup(const char *source_dir, const char *backup_dir);
