@@ -46,7 +46,7 @@ unsigned int hash_md5(unsigned char *md5) {
  */
 void compute_md5(void *data, size_t len, unsigned char *md5_out) {
     // Si les données ou la sortie sont nulles, on sort de la fonction
-    if (data == NULL || md5_out == NULL || len<0) {
+    if (data == NULL || md5_out == NULL ) {
         fprintf(stderr, "Erreur : paramètres invalides dans compute_md5.\n");
         return; 
     }
@@ -262,11 +262,12 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
         size_t bytes_to_read = CHUNK_SIZE;
         if (i == chunk_count - 1) { // Dernier chunk
             bytes_to_read = file_size % CHUNK_SIZE;
+
             if (bytes_to_read == 0) bytes_to_read = CHUNK_SIZE;
         }
 
         // Allouer un buffer pour le chunk
-        unsigned char *buffer = malloc(bytes_to_read);
+        unsigned char *buffer = malloc(bytes_to_read + (i == chunk_count - 1 ? 1 : 0));
         if (!buffer) {
             perror("Erreur lors de l'allocation mémoire pour le chunk");
             return -1;
@@ -287,13 +288,14 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
 
         // Vérifier si le MD5 existe déjà dans la table de hachage
         int existing_index = find_md5(hash_table, md5);
-
-
         if (existing_index == -1) {
+            if (i == chunk_count - 1) {
+                // s'il s'agit du dernier chunk or rajoute le caractere '\0' pour signifier la fin de chaine
+                buffer[bytes_to_read]='\0';
+                } 
             memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
             chunks[i].data = buffer;
-            // Ajouter le MD5 dans la table de hachage
-            add_md5(hash_table, md5, i);
+            add_md5(hash_table, md5, i);   // Ajouter le MD5 dans la table de hachage
         } else {
             chunks[i].data = (void *)(intptr_t)existing_index; // Stocker l'indice du chunk existant dans data
             memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
@@ -356,7 +358,7 @@ void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
 
         if (data_size > 0) {
             // Chunk avec des données réelles
-            (*chunks)[i].data = malloc(data_size);
+            (*chunks)[i].data = malloc(data_size + ((i==*chunk_count-1)? 1 : 0));
             if (!(*chunks)[i].data) {
                 perror("Erreur d'allocation mémoire pour les données du chunk");
                 free(*chunks);
@@ -372,6 +374,7 @@ void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
                 *chunks = NULL;
                 return;
             }
+            if(i==(*chunk_count)-1) ((unsigned char*)(*chunks)[i].data)[data_size]='\0';
         } else {
             // Chunk référencé : lire l'index du chunk source
             int referenced_index;

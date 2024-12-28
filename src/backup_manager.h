@@ -10,6 +10,9 @@
 #include <time.h>
 #include <sys/stat.h>
 
+// Taille Maximale d'un chemin 
+#define MAX_PATH 1024
+
 
 //Fonction pr retirer le premier dossier d'un chemin
 char * shortFirstDelimiter(char * path);

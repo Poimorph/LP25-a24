@@ -96,7 +96,7 @@ log_t *read_backup_log(const char *logfile) {
 
         if (strlen(line)!= 0) {
             unsigned char md5_str[MD5_DIGEST_LENGTH*2];
-            char path[1024];
+            char path[MAX_PATH];
             char date[1024];
 
             int Inner = 0;
@@ -105,7 +105,7 @@ log_t *read_backup_log(const char *logfile) {
             int dateOccurence = 0;
 
 
-            for (int i = 0; i < strlen(line); i++) {
+            for (size_t i = 0; i < strlen(line); i++) {
 
                 if (line[i] == ';') {
                     Inner++;
@@ -124,14 +124,10 @@ log_t *read_backup_log(const char *logfile) {
             path[pathOccurence] = '\0';
             date[dateOccurence] = '\0';
             md5_str[md5Occurence] = '\0';
-            printf("%s", md5_str);
-            // on convertie le md5 en `unsigned char`
 
+            // on convertie le md5 en `unsigned char`
             unsigned char md5_bytes[MD5_DIGEST_LENGTH];
             md5_hex_to_bytes(md5_str, md5_bytes);
-
-
-
 
 
             // Diviser la ligne en 3 parties : chemin, md5 et date
@@ -225,7 +221,7 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
     log_element * backup_element = backup_log_list->head;
     FILE* file = fopen(filename, "w");
     fclose(file);
-    char * temp1 = reversePath(filename);
+    char * temp1 = reversePath((char*)filename);
     char * temp2 = shortFirstDelimiter(temp1);
     char * temp3 = reversePath(temp2);
     char absolute_elt_path[1024];
@@ -243,15 +239,15 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
     int found = 0;
     while (backup_element != NULL) {
         
-        char * temp_backup_log_element_path = shortFirstDelimiter(backup_element->path);
+        char * temp_backup_log_element_path = shortFirstDelimiter((char*)backup_element->path);
 
         
         if (strcmp(temp_backup_log_element_path, elt->path) == 0) {
             found = 1;
             if (memcmp(backup_element->md5, elt->md5, MD5_DIGEST_LENGTH) != 0) {
                 
-                strcpy(elt->path, relative_elt_path);
-                write_log_element(elt, filename); 
+                strcpy((char*)elt->path, relative_elt_path);
+                write_log_element((log_element*)elt, filename); 
                 
                 if (S_ISREG(statbuff.st_mode)) {
                     
@@ -282,8 +278,8 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
 
     }
     if (found == 0) {
-        strcpy(elt->path, relative_elt_path);
-        write_log_element(elt, filename); 
+        strcpy((char*)elt->path, relative_elt_path);
+        write_log_element((log_element*)elt, filename); 
                 
         if (S_ISREG(statbuff.st_mode)) {
             
@@ -295,7 +291,7 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
         
         remove(absolute_elt_path);
     }
-    free(elt);
+    free((log_element*)elt);
     free(backup_log_list);
     
 

@@ -13,8 +13,8 @@ char * PathSplitting(char * completePath, char * repertoryPath) {
     printf("%s\n", repertoryPath);
     printf("%s\n", completePath);
     char * result = malloc(sizeof(char) * strlen(completePath));
-    int length = strlen(repertoryPath);
-    for (int i = length; i <= strlen(completePath); i++) {
+    size_t length = strlen(repertoryPath);
+    for (size_t i = length; i <= strlen(completePath); i++) {
         result[i - (length)] = completePath[i];
     }
     result[strlen(result)] = '\0';
@@ -23,11 +23,11 @@ char * PathSplitting(char * completePath, char * repertoryPath) {
 }
 
 char * shortFirstDelimiter(char * path) {
-    char * result = malloc(sizeof(char) * 1024);
+    char * result = malloc(sizeof(char) * MAX_PATH);
     int isPassed = 0;
     int occurence = 0;
 
-    for (int i = 0; i < strlen(path); i++) {
+    for (size_t i = 0; i < strlen(path); i++) {
         if (path[i] == '/' && isPassed == 0) {
             isPassed = 1;
         } else if (isPassed) {
@@ -48,7 +48,7 @@ char * shortFirstDelimiter(char * path) {
 char * reversePath(char * path) {
     char * result = malloc(strlen(path)*sizeof(char));
 
-    for (int i = 0; i < strlen(path); i++) {
+    for (size_t i = 0; i < strlen(path); i++) {
         result[i] = path[strlen(path) - i - 1];
     }
     result[strlen(path)] = '\0';
@@ -63,7 +63,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
     time_t t = time(NULL); // On définit la variable date
     struct tm tm = *localtime(&t);
-    char date[1024];
+    char date[72];
     snprintf(date, sizeof(date), "%d-%02d-%02d-%02d:%02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
     DIR* dir = opendir(backup_dir); // On ouvre le dossier de sauvegarde. Et on cherche à savoir si il existe
     if (dir == NULL) {
@@ -71,14 +71,15 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         mkdir(backup_dir,0777);
     }
 
-    char path[1024];
+    char path[MAX_PATH + 17];
+
     snprintf(path, sizeof(path), "%s/.backup_log.txt", backup_dir); // On construit le chemin vers le dossier de backup
 
 
     if (access(path, F_OK) == -1) { //Si le fichier .backup_log n'existe pas on fait une backup complète
 
         //On construit et on créer le chemin vers le dossier de backup complète
-        char complete_backup[1024];
+        char complete_backup[MAX_PATH + 20];
         snprintf(complete_backup, sizeof(complete_backup), "%s/%s", backup_dir, date);
         mkdir(complete_backup,0777);
 
@@ -92,7 +93,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         for (int i = 0; i < list_of_path->count; i++) { // Pour chaque  fichier ou dossier copé.
             log_element *log = malloc(sizeof(log_element));
 
-            char backup[1024]; // On définit son chemin relatif par rapport au dossier de backup
+            char backup[MAX_PATH + 1]; // On définit son chemin relatif par rapport au dossier de backup
             snprintf(backup, sizeof(backup), "%s/", backup_dir);
             char * full_path = PathSplitting(list_of_path->paths[i], backup);
 
@@ -122,7 +123,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         fclose(backup_log);
     } else {
 
-        char incremental_backup[1024];
+        char incremental_backup[MAX_PATH + 73];
         //Je calcule le nombre d'élément présent dans le dossier, cela nous donneras à combien de backup nous serons (si on retir le fichier backup et le dossier de sauvegarde complète
 
         snprintf(incremental_backup, sizeof(incremental_backup), "%s/%s", backup_dir, date);
@@ -137,8 +138,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         PathList *current_file_list = list_files(incremental_backup);
         
         
-        printf("lol");
-        char incremental_final_backup[1024]; // A des fins d'organisation il est nécessaire de retirer le premier slash
+        char incremental_final_backup[MAX_PATH + 74]; // A des fins d'organisation il est nécessaire de retirer le premier slash
         snprintf(incremental_final_backup, sizeof(incremental_final_backup), "%s/", incremental_backup);
         for (int i = 0; i < current_file_list->count; i++) {
 
@@ -177,7 +177,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
         }
         free(current_file_list);
-        char backup_log_incremental[1024];
+        char backup_log_incremental[MAX_PATH + 89];
         snprintf(backup_log_incremental, sizeof(backup_log_incremental), "%s/.backup_log.txt", incremental_backup);
         FILE *d =fopen(backup_log_incremental,"wb");
             FILE *f =fopen(path,"rb");
@@ -306,9 +306,12 @@ void write_restored_file(const char *output_filename, Chunk *chunks, int chunk_c
 
     } 
     else {
-        for (int i=0;i<chunk_count;i++){
+        for (int i=0;i<chunk_count-1;i++){
             fwrite(chunks[i].data, 1, CHUNK_SIZE, file);
         }
+        size_t actual_size = strlen((char *)chunks[chunk_count-1].data);
+        actual_size= (actual_size>CHUNK_SIZE)?CHUNK_SIZE:actual_size;
+        fwrite(chunks[chunk_count-1].data, 1, actual_size, file);
         fclose(file);
     }
 
@@ -328,7 +331,7 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
         exit(EXIT_FAILURE);
     }
 
-    char backup_log_path[1024];
+    char backup_log_path[MAX_PATH + 16];
     snprintf(backup_log_path, sizeof(backup_log_path), "%s/.backup_log.txt", backup_id); // Construction du chemin menant au backup_log
     log_t * logList = read_backup_log(backup_log_path); // Je récupère chaque fichier.
     if (logList == NULL) {
@@ -343,13 +346,12 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
         free(temp);
         char *temp2 = reversePath(temp1);
         free(temp1);
-        char completePath[1024]; // Je concatène les chemins pour avoir un chemin absolue sur les fichiers du backup_log
+        char completePath[MAX_PATH * 2]; // Je concatène les chemins pour avoir un chemin absolue sur les fichiers du backup_log
         snprintf(completePath, sizeof(completePath), "%s/%s", temp2,log->path);
         free(temp2);
 
 
-        char restorePath[1024];
-
+        char restorePath[MAX_PATH*2];
         snprintf(restorePath, sizeof(restorePath), "%s/%s", restore_dir, shortFirstDelimiter((char*)log->path));
 
         struct stat statbuff;
@@ -368,10 +370,6 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
             }
             undeduplicate_file(file, &chunks, &chunk_count);
             fclose(file);
-            printf("\n\n");
-            for (int i=0;i<chunk_count;i++) printf("%s",(char *)chunks[i].data);
-            printf("\n\n");
-
             write_restored_file(restorePath, chunks, chunk_count);
         }
 
@@ -391,7 +389,8 @@ void list_backups(const char *backup_dir) {
     if (list_of_files == NULL) {
         perror("Could not list backup files");
         exit(EXIT_FAILURE);
-    } else {
+    }
+    else {
         printf("Voici les backups disponibles : \n");
         for (int i = 0; i < list_of_files->count; i++) {
             char * temp_char = PathSplitting(list_of_files->paths[i], (char*)backup_dir);
@@ -399,5 +398,4 @@ void list_backups(const char *backup_dir) {
             free(temp_char);
         }
     }
-
 }
