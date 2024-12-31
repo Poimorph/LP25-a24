@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include "file_handler.h"
 
-#include <backup_manager.h>
+#include "backup_manager.h"
 
 #include "deduplication.h"
 /**
@@ -31,10 +31,10 @@ int hex_to_int(unsigned char c) {
 
 /**
  * @brief Convertit une chaîne hexadécimale MD5 en tableau de bytes.
- * 
+ *
  * @param hex_md5 La chaîne de caractères représentant le MD5 en hexadécimal (32 caractères).
  * @param md5_bytes Le tableau de bytes qui recevra le MD5 converti (16 octets).
- * 
+ *
  * @note La fonction vérifie si les caractères hexadécimaux sont valides, et si ce n'est pas le cas,
  *       elle affiche un message d'erreur et retourne sans effectuer la conversion.
  */
@@ -57,18 +57,18 @@ void md5_hex_to_bytes(unsigned char * hex_md5, unsigned char * md5_bytes) {
 
 /**
  * @brief Lit un fichier de journal de sauvegarde et retourne une liste chaînée d'éléments de log.
- * 
+ *
  * Cette fonction lit un fichier `.backup_log`, extrait les informations contenues dans chaque ligne
- * (un chemin, un hash MD5 et une date) et crée une liste chaînée d'éléments de log correspondant à 
- * chaque ligne du fichier. Le fichier est ouvert en mode lecture, et chaque ligne est analysée et divisée 
+ * (un chemin, un hash MD5 et une date) et crée une liste chaînée d'éléments de log correspondant à
+ * chaque ligne du fichier. Le fichier est ouvert en mode lecture, et chaque ligne est analysée et divisée
  * en trois parties : chemin, MD5 et date.
- * 
+ *
  * @param logfile Le chemin vers le fichier `.backup_log` à lire.
- * 
+ *
  * @return Une liste chaînée de `log_t` contenant les éléments de log extraits du fichier.
- *         Si une erreur se produit lors de l'ouverture du fichier ou de l'allocation mémoire, 
+ *         Si une erreur se produit lors de l'ouverture du fichier ou de l'allocation mémoire,
  *         NULL est retourné.
- * 
+ *
  * @note La fonction alloue de la mémoire pour chaque élément de log et pour les chaînes de caractères
  *       (chemin et date). La fonction attend que chaque ligne du fichier ait une structure spécifique
  *       avec trois parties séparées par un point-virgule (`;`).
@@ -201,14 +201,14 @@ log_t *read_backup_log(const char *logfile) {
 
 /**
  * @brief Met à jour une ligne dans le fichier `.backup_log`.
- * 
+ *
  * Cette fonction parcourt les éléments du fichier `.backup_log` et met à jour la ligne correspondant
  * au chemin spécifié dans `element`. Si le MD5 a changé, la ligne est mise à jour. Si aucun élément
  * correspondant n'est trouvé, un nouvel élément est ajouté.
- * 
+ *
  * @param element L'élément `log_element` contenant les informations à mettre à jour.
  * @param filename Le chemin du fichier `.backup_log` à modifier.
- * 
+ *
  * @note La fonction ouvre le fichier en mode écriture et le réécrit entièrement.
  */
 void update_backup_log(const log_element *elt, const char *filename, const char * dirname) {
@@ -216,7 +216,7 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
         fprintf(stderr, "Paramètres invalides pour update_backup_log.\n");
         return;
     }
-    
+
     log_t * backup_log_list = read_backup_log(filename);
     log_element * backup_element = backup_log_list->head;
     FILE* file = fopen(filename, "w");
@@ -230,7 +230,7 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
     snprintf(relative_elt_path, sizeof(relative_elt_path), "%s/%s", dirname, elt->path);
     printf("@@%s@@", absolute_elt_path);
     struct stat statbuff;
-    
+
     printf("%d", stat(absolute_elt_path, &statbuff));
     free(temp1);
     free(temp2);
@@ -238,77 +238,77 @@ void update_backup_log(const log_element *elt, const char *filename, const char 
     int changed = 0;
     int found = 0;
     while (backup_element != NULL) {
-        
+
         char * temp_backup_log_element_path = short_first_delimiter((char *)backup_element->path);
 
-        
+
         if (strcmp(temp_backup_log_element_path, elt->path) == 0) {
             found = 1;
             if (memcmp(backup_element->md5, elt->md5, MD5_DIGEST_LENGTH) != 0) {
-                
+
                 strcpy((char *)elt->path, relative_elt_path);
-                write_log_element((log_element*)elt, filename); 
-                
+                write_log_element((log_element*)elt, filename);
+
                 if (S_ISREG(statbuff.st_mode)) {
-                    
+
                     backup_file(absolute_elt_path);
                 }
                 changed = 1;
 
-                
+
             } else {
-                
+
                 write_log_element(backup_element, filename);
-                
+
             }
         } else {
-                
+
                 write_log_element(backup_element, filename);
-                
+
             }
 
-        
+
         free(temp_backup_log_element_path);
-        
-        
+
+
         backup_element = backup_element->next;
         continue;
 
     }
     if (found == 0) {
         strcpy((char *)elt->path, relative_elt_path);
-        write_log_element((log_element*)elt, filename); 
-                
+        write_log_element((log_element*)elt, filename);
+
         if (S_ISREG(statbuff.st_mode)) {
-            
+
             backup_file(absolute_elt_path);
         }
         changed = 1;
     }
     if (changed == 0) {
-        
+
         remove(absolute_elt_path);
     }
     free((log_element*)elt);
     free(backup_log_list);
-    
-
-    
 
 
-    
+
+
+
+
 }
 /**
  * @brief Écrit un élément de log dans le fichier `.backup_log`.
- * 
- * Cette fonction ajoute un nouvel élément de log à la fin du fichier `.backup_log`. 
+ *
+ * Cette fonction ajoute un nouvel élément de log à la fin du fichier `.backup_log`.
  * Elle écrit le chemin, le MD5 et la date de l'élément sur une nouvelle ligne du fichier.
- * 
+ *
  * @param elt L'élément de log à écrire (contenant le chemin, le MD5 et la date).
  * @param logfile Le chemin du fichier `.backup_log` où l'élément sera écrit.
  */
 void write_log_element(log_element *elt, const char *logfile) {
-    
+
 	if (!elt || !logfile) {
         fprintf(stderr, "Paramètres invalides pour write_log_element.\n");
         return;
@@ -332,11 +332,11 @@ void write_log_element(log_element *elt, const char *logfile) {
 
 /**
  * @brief Crée une nouvelle liste de chemins.
- * 
- * Cette fonction alloue et initialise une nouvelle structure de liste `PathList`, 
- * avec un tableau dynamique pour stocker les chemins. La capacité initiale du tableau 
+ *
+ * Cette fonction alloue et initialise une nouvelle structure de liste `PathList`,
+ * avec un tableau dynamique pour stocker les chemins. La capacité initiale du tableau
  * est fixée à 10 éléments.
- * 
+ *
  * @return PathList * Un pointeur vers la nouvelle liste de chemins, ou NULL en cas d'erreur d'allocation.
  */
 PathList *create_pathlist() {
@@ -349,11 +349,11 @@ PathList *create_pathlist() {
 
 /**
  * @brief Ajoute un chemin à la liste dynamique de chemins.
- * 
+ *
  * Cette fonction ajoute un chemin à la liste `PathList`. Si la liste atteint sa capacité maximale,
  * elle double sa capacité en allouant un plus grand espace mémoire. Le chemin est ajouté à la fin de la liste,
  * et le compteur d'éléments est incrémenté.
- * 
+ *
  * @param list Pointeur vers la liste de chemins à laquelle ajouter le chemin.
  * @param path Le chemin à ajouter à la liste.
  */
@@ -370,11 +370,11 @@ void add_path(PathList *list, const char *path) {
 
 /**
  * @brief Libère la mémoire allouée à la liste dynamique de chemins.
- * 
+ *
  * Cette fonction libère toute la mémoire allouée pour la liste de chemins. Elle parcourt la liste,
  * libère chaque chemin individuel, puis libère le tableau contenant les chemins et enfin la structure
  * représentant la liste.
- * 
+ *
  * @param list Pointeur vers la liste de chemins à libérer.
  */
 void free_pathlist(PathList *list) {
@@ -387,11 +387,11 @@ void free_pathlist(PathList *list) {
 
 /**
  * @brief Parcourt un répertoire et récupère tous les chemins des fichiers et répertoires qu'il contient.
- * 
+ *
  * Cette fonction ouvre un répertoire, parcourt ses entrées et récupère les chemins des fichiers et des
  * sous-répertoires. Si un sous-répertoire est trouvé, la fonction est appelée récursivement pour l'explorer
  * et récupérer ses fichiers. Les chemins sont ajoutés à une liste dynamique.
- * 
+ *
  * @param directory Le chemin du répertoire à explorer.
  * @return Une liste de chemins de type `PathList` contenant tous les fichiers et répertoires trouvés.
  * @note La fonction utilise la récursion pour explorer les sous-répertoires. Si le répertoire ne peut pas
@@ -441,11 +441,11 @@ PathList *list_files(const char *directory) {
 
 /**
  * @brief Copie un répertoire et son contenu, y compris les sous-répertoires, vers un autre emplacement.
- * 
+ *
  * Cette fonction copie récursivement tous les fichiers et sous-répertoires d'un répertoire source vers
  * un répertoire de destination. Si le répertoire de destination n'existe pas, il est créé. Les fichiers et
  * répertoires sont copiés de manière récursive, en parcourant tous les niveaux de sous-dossiers.
- * 
+ *
  * @param src Le chemin du répertoire source à copier.
  * @param dest Le chemin du répertoire de destination où les fichiers et répertoires seront copiés.
  * @note Si un sous-répertoire est rencontré, il est également copié avec son contenu.
@@ -479,11 +479,11 @@ void copy_file(const char *src, const char * dest) {
         }
         // Si l'entrée est un répertoire, explorer récursivement
         if (S_ISDIR(entry_stat.st_mode)) {
-            mkdir(destpath, 0777);  // Créer le dossier 
+            mkdir(destpath, 0777);  // Créer le dossier
             copy_file(fullpath, destpath); // Recherche les sous dossier et fichiers
-        } else{ 
-            // S'il s'agit d'un fichier, on copie le contenue du fichier source dans le fichier destination que 
-            // l'on crée en meme temps 
+        } else{
+            // S'il s'agit d'un fichier, on copie le contenue du fichier source dans le fichier destination que
+            // l'on crée en meme temps
             FILE *d =fopen(destpath,"w");
             FILE *f =fopen(fullpath,"r");
             int c;

@@ -9,10 +9,10 @@
 
 /**
  * @brief Structure contenant les options de sauvegarde et de restauration.
- * 
+ *
  * Cette structure stocke les options configurées par l'utilisateur pour contrôler le comportement du programme, telles que les opérations de sauvegarde, restauration, et la liste des sauvegardes.
  * Elle inclut également des paramètres de connexion réseau (serveur source et destination), des options de mode "dry-run" et "verbose".
- * 
+ *
  * @note Les options `--backup`, `--restore`, et `--list-backups` sont incompatibles entre elles.
  */
 typedef struct {
@@ -21,7 +21,7 @@ typedef struct {
     int list_backups_flag;   /**Active l'option de liste des sauvegardes (1) ou non (0). */
     int dry_run_flag;        /**Active le mode "dry-run" (1) pour simuler les opérations. */
     int verbose_flag;        /**Active le mode "verbose" (1) pour un affichage détaillé. */
-    
+
     char *d_server;          /**Adresse IP du serveur de destination. */
     int d_port;              /**Port du serveur de destination. */
     char *s_server;          /**Adresse IP du serveur source. */
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
     BackupOptions options = {0};
     options.d_port = -1;  // Valeur par défaut invalide
     options.s_port = -1;  // Valeur par défaut invalide
-    
+
     // // définition des options longues
     struct option long_options[] = {
         {"backup",        no_argument,       &options.backup_flag,        1},
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
         {0, 0, 0, 0}
     };
 
-    
+
 
     // Gestions des options
     int option_index = 0;
@@ -150,18 +150,13 @@ int main(int argc, char *argv[]) {
     }
 
 
-    // if (options.d_port <= 0 || options.d_port > 65535) {
-    //     fprintf(stderr, "Erreur : Numéro de port destination invalide\n");
-    //     free_options(&options);
-    //     return 1;
-    // }
-    //
-    // if (options.s_port <= 0 || options.s_port > 65535) {
-    //     fprintf(stderr, "Erreur : Numéro de port source invalide\n");
-    //     free_options(&options);
-    //     return 1;
-    // }
-    
+
+    //if (options.s_port <= 0 || options.s_port > 65535) {
+        //fprintf(stderr, "Erreur : Numéro de port source invalide\n");
+        //free_options(&options);
+        //return 1;
+    //}
+
     if (options.backup_flag) {
         if (!options.source_path || !options.dest_path) {
             fprintf(stderr, "Erreur : Les chemins source et destination sont requis pour la sauvegarde\n");
@@ -169,8 +164,21 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        printf("Exécution de la sauvegarde de %s vers %s\n",options.source_path, options.dest_path);
-        create_backup(options.source_path,options.dest_path);
+        if ((options.d_port < 0 && options.d_port != -1) || options.d_port > 65535) {
+            fprintf(stderr, "Erreur : Numéro de port destination invalide\n");
+            free_options(&options);
+            return 1;
+        }
+        if (options.d_port == -1) {
+            // Nous lançons en local
+            printf("Exécution de la sauvegarde de %s vers %s\n",options.source_path, options.dest_path);
+            create_backup(options.source_path,options.dest_path, NULL, NULL);
+        } else {
+            // Nous lançons en réseau
+            printf("Exécution de la sauvegarde de %s vers %s\n",options.source_path, options.dest_path);
+            create_backup(options.source_path,options.dest_path, options.d_server, options.d_port);
+        }
+
     }
 
     if (options.restore_flag) {
@@ -210,4 +218,3 @@ int main(int argc, char *argv[]) {
     free_options(&options);
     return EXIT_SUCCESS;
 }
-

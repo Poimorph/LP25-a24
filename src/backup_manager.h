@@ -10,7 +10,7 @@
 #include <time.h>
 #include <sys/stat.h>
 
-// Taille Maximale d'un chemin 
+// Taille Maximale d'un chemin
 #define MAX_PATH 1024
 
 
@@ -19,7 +19,7 @@ char * short_first_delimiter(char * path);
 char * reverse_path(char * path);
 
 // Fonction pour créer un nouveau backup incrémental
-void create_backup(const char *source_dir, const char *backup_dir);
+void create_backup(const char *source_dir, const char *backup_dir, const char * ip_address, const int port);
 // Fonction pour restaurer une sauvegarde
 void restore_backup(const char *backup_id, const char *restore_dir);
 // Fonction permettant la restauration du fichier backup via le tableau de chunk

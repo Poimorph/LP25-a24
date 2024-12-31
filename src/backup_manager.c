@@ -1,5 +1,6 @@
 #include "backup_manager.h"
 #include "deduplication.h"
+#include "network.h"
 #include "file_handler.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +9,25 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <arpa/inet.h>
+#include <ftw.h>
+#include <sys/sendfile.h>
+#include <fcntl.h>
+
+int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+{
+    int rv = remove(fpath);
+
+    if (rv)
+        perror(fpath);
+
+    return rv;
+}
+
+int rmrf(char *path)
+{
+    return nftw(path, unlink_cb, 64);
+}
 
 char *path_splitting(char *complete_path, char *repertory_path) {
     printf("%s\n", repertory_path);
@@ -20,6 +40,20 @@ char *path_splitting(char *complete_path, char *repertory_path) {
     result[strlen(result)] = '\0';
     printf("%s\n", result);
     return result;
+}
+
+char * get_first_delimiter(char * path) {
+    char * finalpath = malloc(sizeof(char) * strlen(path));
+    for (int i = 0; i < strlen(path); i++) {
+        if (path[i] == '/') {
+            finalpath[i] = '\0';
+            return finalpath;
+        }else {
+            finalpath[i] = path[i];
+        }
+    }
+    free(finalpath);
+    return path;
 }
 
 char *short_first_delimiter(char *path) {
@@ -54,8 +88,10 @@ char *reverse_path(char *path) {
     return result;
 }
 
+
+
 // Fonction pour créer une nouvelle sauvegarde complète puis incrémentale
-void create_backup(const char *source_dir, const char *backup_dir) {
+void create_backup(const char *source_dir, const char *backup_dir, const char * ip_address, const int port) {
     /* @param: source_dir est le chemin vers le répertoire à sauvegarder
     *          backup_dir est le chemin vers le répertoire de sauvegarde
     */
@@ -63,37 +99,94 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     time_t t = time(NULL); // On définit la variable date
     struct tm tm = *localtime(&t);
     char date[72];
+    int is_network = 0; // Cette variable va nous servir à savoir si nous travaillons en local ou en réseau
+    int client;
     snprintf(date, sizeof(date), "%d-%02d-%02d-%02d:%02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
     DIR *dir = opendir(backup_dir); // On ouvre le dossier de sauvegarde. Et on cherche à savoir si il existe
     if (dir == NULL) {
         //Si il n'existe pas on le créer
-        mkdir(backup_dir, 0777);
+        struct sockaddr_in sa;
+
+        int result = 0;
+        if (ip_address != NULL) {
+            result = inet_pton(AF_INET, ip_address, &(sa.sin_addr)); // Nous voyons si l'adresse ip est valide
+        }
+
+        if (result == 0) {
+
+            mkdir(backup_dir, 0777);
+        } else {
+            is_network = 1;
+            client = start_connection(ip_address, port);
+        }
+
     }
 
     char path[MAX_PATH + 17];
 
     snprintf(path, sizeof(path), "%s/.backup_log.txt", backup_dir); // On construit le chemin vers le dossier de backup
+    char * buffer;
+    printf("%s",  path);
+    int is_backup_exist = 0;
+    printf("%d", is_network);
+
+    if (is_network) {
+        send_data(client, path, strlen(path)); // Bug à résoudre
+        printf("connected and is network");
+        receive_data(client, &buffer, 1024);
 
 
-    if (access(path, F_OK) == -1) { //Si le fichier .backup_log n'existe pas on fait une backup complète
+        printf("%d", atoi(buffer));
+        is_backup_exist = atoi(buffer);
+
+    } else {
+        is_backup_exist = access(path, F_OK);
+    }
+
+
+
+    if (is_backup_exist == -1) { //Si le fichier .backup_log n'existe pas on fait une backup complète
+        char backup_dir_path[MAX_PATH+1];
 
         //On construit et on créer le chemin vers le dossier de backup complète
+        if (is_network) {
+            char temp[MAX_PATH +1];
+            // Nous allons créer un dossier de travail temporaire en local puis tout envoyer quand la sauvegarde sera terminé
+            realpath(".", temp);
+            snprintf(backup_dir_path, sizeof(backup_dir_path), "%s/%s", temp, "dest");
+            mkdir("dest", 0777);
+
+        } else {
+            strcpy(backup_dir_path, backup_dir);
+        }
         char complete_backup[MAX_PATH + 20];
-        snprintf(complete_backup, sizeof(complete_backup), "%s/%s", backup_dir, date);
+        snprintf(complete_backup, sizeof(complete_backup), "%s/%s", backup_dir_path, date);
         mkdir(complete_backup, 0777);
 
         // On copie tout les fichiers.
         copy_file(source_dir, complete_backup);
+        printf("%s", complete_backup);
+        FILE* backup_log;
 
-        FILE *backup_log = fopen(path, "wb");
-        
+        if (is_network) {
+            backup_log = fopen("dest/.backup_log.txt", "wb");// Si on est en réseau on créer un répertoire de sauvegarde temporaire.
+        }else {
+            backup_log = fopen(path, "wb");
+        }
+
+
         PathList *list_of_path = list_files(complete_backup);
+        if (is_network) {
+            int value = list_of_path->count;
+            printf("llllllllllllll : %d", value);
+            send_data(client, &value, sizeof(value));// On envoie au serveur le nombre d'éléments que nous allons envoyer.
+        }
 
         for (int i = 0; i < list_of_path->count; i++) { // Pour chaque  fichier ou dossier copé.
             log_element *log = malloc(sizeof(log_element));
 
             char backup[MAX_PATH + 1]; // On définit son chemin relatif par rapport au dossier de backup
-            snprintf(backup, sizeof(backup), "%s/", backup_dir);
+            snprintf(backup, sizeof(backup), "%s/", backup_dir_path);
             char *full_path = path_splitting(list_of_path->paths[i], backup);
 
             log->path = full_path;
@@ -102,7 +195,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
             struct stat stat_buffer;
 
             stat(list_of_path->paths[i], &stat_buffer);
-            printf("%d\n", stat(list_of_path->paths[i], &stat_buffer));
+
             printf("%d", S_ISDIR(stat_buffer.st_mode));
             if (S_ISREG(stat_buffer.st_mode)) { // Si le présupposé fichier est un fichier alors on calule son md5
 
@@ -112,13 +205,61 @@ void create_backup(const char *source_dir, const char *backup_dir) {
                     log->md5[y] = md5temp[y];
                 }
             }
-            write_log_element(log, path);
+
+            if (is_network) {
+                write_log_element(log, "dest/.backup_log.txt");
+            } else {
+                write_log_element(log, path);
+            }
+
             free(log);
             if (S_ISREG(stat_buffer.st_mode)) {
                 backup_file(list_of_path->paths[i]); // Enfin on le déduplique.
             }
+            int type;
+            if (S_ISDIR(stat_buffer.st_mode)){
+                type = 1;
+
+            } else {
+                type = 0;
+            }
+            if (is_network){
+                send_data(client, &type, sizeof(type));
+                send_data(client, full_path, strlen(full_path)); // On envoie le chemin relatif
+            }
+            if (is_network && S_ISREG(stat_buffer.st_mode)) {
+
+                FILE* file_desc = fopen(list_of_path->paths[i], "rb");
+                if (fseek(file_desc, 0, SEEK_END) != 0) {
+                    perror("Erreur lors du parcours du fichier");
+                    return;
+                }
+                long file_size = ftell(file_desc);
+                if (file_size == -1) {
+                    perror("Erreur lors de la récupération de la taille du fichier");
+                    return;
+                }
+                rewind(file_desc);
+                fclose(file_desc);
+                printf("taille: %d", file_size );
+                send_data(client, &file_size, sizeof(file_size));// On envoie d'abord la taille du fichier
+                int file_desc_final = open(list_of_path->paths[i], O_RDONLY);
+
+
+                sendfile(client, file_desc_final, NULL, file_size);// On envoie le fichier dédupliqué ou le dossier
+
+            }
         }
         fclose(backup_log);
+        if (is_network) {
+            struct stat stats;
+            stat("dest/.backup_log.txt", &stats);
+            send_data(client, stats.st_size, sizeof(stats.st_size));
+            int file_desc = open("dest/.backup_log.txt", O_RDONLY);
+            sendfile(client, file_desc, NULL, stats.st_size);
+        }
+
+
     } else {
 
         char incremental_backup[MAX_PATH + 73];
@@ -134,41 +275,41 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         copy_file(source_dir, incremental_backup);
 
         PathList *current_file_list = list_files(incremental_backup);
-        
-        
+
+
         char incremental_final_backup[MAX_PATH + 74]; // A des fins d'organisation il est nécessaire de retirer le premier slash
         snprintf(incremental_final_backup, sizeof(incremental_final_backup), "%s/", incremental_backup);
         for (int i = 0; i < current_file_list->count; i++) {
 
 
-            
+
 
             log_element *element = malloc(sizeof(log_element));
-            
-            
-            
+
+
+
             //Calcul le chemin relatif
             char *relative = path_splitting(current_file_list->paths[i], incremental_final_backup);
-            
-            
-            
+
+
+
             element->path = relative;
             struct stat stat_buffer;
             stat(current_file_list->paths[i], &stat_buffer);
-            
-            
+
+
             if (S_ISREG(stat_buffer.st_mode)) {
                 FILE *file = fopen(current_file_list->paths[i], "rb");
                 unsigned char *md5 = md5_file(file);
-                
+
                 for (int y = 0; y < MD5_DIGEST_LENGTH; y++) {
                     element->md5[y] = md5[y];
                 }
             }
-            
-            
+
+
             element->date = date;
-            
+
 
             update_backup_log(element, path, date);
         }
@@ -189,7 +330,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
 /**
  * @brief Enregistre un tableau de chunks dédupliqués dans un fichier de sauvegarde.
- * 
+ *
  * @param output_filename Le nom du fichier où les données doivent être sauvegardées.
  * @param chunks Le tableau de chunks à sauvegarder.
  * @param chunk_count Le nombre total de chunks dans le tableau.
@@ -228,7 +369,7 @@ void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_cou
             size_t data_size = 0;
             int referenced_index = (int)(intptr_t)chunks[i].data;
 
-            
+
             if (fwrite(&data_size, sizeof(size_t), 1, file) != 1 ||
                 fwrite(&referenced_index, sizeof(int), 1, file) != 1) {
                 perror("Erreur lors de l'écriture d'un chunk référencé");
@@ -247,7 +388,7 @@ void write_backup_file(const char *output_filename, Chunk *chunks, int chunk_cou
         }
 
     }
-    
+
     fclose(file);
 }
 
