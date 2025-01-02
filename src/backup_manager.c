@@ -14,19 +14,14 @@
 #include <sys/sendfile.h>
 #include <fcntl.h>
 
-int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+int rmFiles(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftwb)
 {
-    int rv = remove(fpath);
-
-    if (rv)
-        perror(fpath);
-
-    return rv;
-}
-
-int rmrf(char *path)
-{
-    return nftw(path, unlink_cb, 64);
+    if(remove(pathname) < 0)
+    {
+        perror("ERROR: remove");
+        return -1;
+    }
+    return 0;
 }
 
 char *path_splitting(char *complete_path, char *repertory_path) {
@@ -91,59 +86,70 @@ char *reverse_path(char *path) {
 
 
 // Fonction pour créer une nouvelle sauvegarde complète puis incrémentale
-void create_backup(const char *source_dir, const char *backup_dir, const char * ip_address, const int port) {
+void create_backup(const char *source_dir, const char *backup_dir, char * ip_address, const int port) {
     /* @param: source_dir est le chemin vers le répertoire à sauvegarder
     *          backup_dir est le chemin vers le répertoire de sauvegarde
     */
+    printf(" ip :%s\n", ip_address);
 
     time_t t = time(NULL); // On définit la variable date
     struct tm tm = *localtime(&t);
     char date[72];
     int is_network = 0; // Cette variable va nous servir à savoir si nous travaillons en local ou en réseau
     int client;
+    char callback[1024];
+    char * callbackR = "Callback";
     snprintf(date, sizeof(date), "%d-%02d-%02d-%02d:%02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
     DIR *dir = opendir(backup_dir); // On ouvre le dossier de sauvegarde. Et on cherche à savoir si il existe
     if (dir == NULL) {
         //Si il n'existe pas on le créer
-        struct sockaddr_in sa;
 
-        int result = 0;
-        if (ip_address != NULL) {
-            result = inet_pton(AF_INET, ip_address, &(sa.sin_addr)); // Nous voyons si l'adresse ip est valide
-        }
 
-        if (result == 0) {
+    }
 
-            mkdir(backup_dir, 0777);
-        } else {
-            is_network = 1;
-            client = start_connection(ip_address, port);
-        }
+    struct sockaddr_in sa;
 
+    int result = 0;
+
+    if (ip_address != NULL) {
+        result = inet_pton(AF_INET, ip_address, &(sa.sin_addr)); // Nous voyons si l'adresse ip est valide
+    }
+    printf("res ; %d\n", result);
+
+    if (result == 0) {
+
+        mkdir(backup_dir, 0777);
+    } else {
+        is_network = 1;
+        client = start_connection(ip_address, port);
     }
 
     char path[MAX_PATH + 17];
 
     snprintf(path, sizeof(path), "%s/.backup_log.txt", backup_dir); // On construit le chemin vers le dossier de backup
     char * buffer;
-    printf("%s",  path);
-    int is_backup_exist = 0;
-    printf("%d", is_network);
 
+    int is_backup_exist = 0;
+
+    printf("n : %d\n", is_network);
     if (is_network) {
-        send_data(client, path, strlen(path)); // Bug à résoudre
-        printf("connected and is network");
+
+        send_data(client, path, strlen(path));
+
         receive_data(client, &buffer, 1024);
 
 
-        printf("%d", atoi(buffer));
+
         is_backup_exist = atoi(buffer);
 
     } else {
         is_backup_exist = access(path, F_OK);
     }
 
-
+    send_data(client, backup_dir, strlen(backup_dir));
+    receive_data(client, callback, 1024-1);
+    send_data(client, date, strlen(date));
+    receive_data(client, callback, 1024-1);
 
     if (is_backup_exist == -1) { //Si le fichier .backup_log n'existe pas on fait une backup complète
         char backup_dir_path[MAX_PATH+1];
@@ -157,15 +163,17 @@ void create_backup(const char *source_dir, const char *backup_dir, const char * 
             mkdir("dest", 0777);
 
         } else {
+
             strcpy(backup_dir_path, backup_dir);
         }
+
         char complete_backup[MAX_PATH + 20];
         snprintf(complete_backup, sizeof(complete_backup), "%s/%s", backup_dir_path, date);
         mkdir(complete_backup, 0777);
 
         // On copie tout les fichiers.
         copy_file(source_dir, complete_backup);
-        printf("%s", complete_backup);
+
         FILE* backup_log;
 
         if (is_network) {
@@ -178,8 +186,9 @@ void create_backup(const char *source_dir, const char *backup_dir, const char * 
         PathList *list_of_path = list_files(complete_backup);
         if (is_network) {
             int value = list_of_path->count;
-            printf("llllllllllllll : %d", value);
+
             send_data(client, &value, sizeof(value));// On envoie au serveur le nombre d'éléments que nous allons envoyer.
+            receive_data(client, callback, 1024-1);
         }
 
         for (int i = 0; i < list_of_path->count; i++) { // Pour chaque  fichier ou dossier copé.
@@ -213,19 +222,23 @@ void create_backup(const char *source_dir, const char *backup_dir, const char * 
             }
 
             free(log);
+            int type;
             if (S_ISREG(stat_buffer.st_mode)) {
                 backup_file(list_of_path->paths[i]); // Enfin on le déduplique.
-            }
-            int type;
-            if (S_ISDIR(stat_buffer.st_mode)){
-                type = 1;
-
-            } else {
                 type = 0;
+            } else {
+                type = 1;
             }
+
+
             if (is_network){
                 send_data(client, &type, sizeof(type));
-                send_data(client, full_path, strlen(full_path)); // On envoie le chemin relatif
+                receive_data(client, callback, 1024-1);
+                char path_to_send[1024];
+                snprintf(path_to_send, sizeof(path_to_send), "%s/%s", backup_dir, full_path);
+                send_data(client, path_to_send, strlen(path_to_send));
+                printf("full_path : %s", full_path); // On envoie le chemin relatif
+                receive_data(client, callback, 1024-1);
             }
             if (is_network && S_ISREG(stat_buffer.st_mode)) {
 
@@ -243,10 +256,12 @@ void create_backup(const char *source_dir, const char *backup_dir, const char * 
                 fclose(file_desc);
                 printf("taille: %d", file_size );
                 send_data(client, &file_size, sizeof(file_size));// On envoie d'abord la taille du fichier
+                receive_data(client, callback, 1024-1);
                 int file_desc_final = open(list_of_path->paths[i], O_RDONLY);
 
 
                 sendfile(client, file_desc_final, NULL, file_size);// On envoie le fichier dédupliqué ou le dossier
+                receive_data(client, callback, 1024-1);
 
             }
         }
@@ -255,30 +270,61 @@ void create_backup(const char *source_dir, const char *backup_dir, const char * 
             struct stat stats;
             stat("dest/.backup_log.txt", &stats);
             send_data(client, stats.st_size, sizeof(stats.st_size));
+            receive_data(client, callback, 1024-1);
             int file_desc = open("dest/.backup_log.txt", O_RDONLY);
             sendfile(client, file_desc, NULL, stats.st_size);
+            receive_data(client, callback, 1024-1);
         }
-
+        if (nftw("dest", rmFiles,10, FTW_D) < 0) {
+            perror("ERROR: ntfw");
+            exit(1);
+        }
 
     } else {
 
-        char incremental_backup[MAX_PATH + 73];
-        //Je calcule le nombre d'élément présent dans le dossier, cela nous donneras à combien de backup nous serons (si on retir le fichier backup et le dossier de sauvegarde complète
+        char backup_dir_path[MAX_PATH + 73];
 
-        snprintf(incremental_backup, sizeof(incremental_backup), "%s/%s", backup_dir, date);
-        mkdir(incremental_backup, 0777);
+        //On construit et on créer le chemin vers le dossier de backup complète
+        if (is_network) {
+            char temp[MAX_PATH +1];
+            // Nous allons créer un dossier de travail temporaire en local puis tout envoyer quand la sauvegarde sera terminé
+            realpath(".", temp);
+            snprintf(backup_dir_path, sizeof(backup_dir_path), "%s/%s", temp, "dest");
+            mkdir("dest", 0777);
 
+        } else {
+            snprintf(backup_dir_path, sizeof(backup_dir_path), "%s/%s", backup_dir, date);
+            mkdir(backup_dir_path, 0777);
+        }
 
+        if (is_network){
+            char backup_log_path[1024];
+            snprintf(backup_log_path, sizeof(backup_log_path), "%s/%s", backup_dir_path, ".backup_log.txt");
+            FILE * file = fopen(backup_log_path, "wb");
+            long size_of_file;
+            receive_data(client, &size_of_file, sizeof(size_of_file));
+            send_data(client, callbackR, strlen(callbackR));
+            char * buffer = malloc(sizeof(char) * size_of_file);
+
+            read(client, buffer, size_of_file);
+            send(client, callbackR, strlen(callbackR), 0);
+            printf("%s", buffer);
+            fwrite(buffer, sizeof(char), size_of_file, file);
+            fclose(file);
+            printf("len : %ld", strlen(buffer));
+            free(buffer);
+
+        }
         //Je copie le répértoire entier, ensuite pour chaque ficher je compare à la version originale, si c'est la même je supprime le fichier. Si le fichier est différent je le transforme en fichier backup.
 
 
-        copy_file(source_dir, incremental_backup);
+        copy_file(source_dir, backup_dir_path);
 
-        PathList *current_file_list = list_files(incremental_backup);
+        PathList *current_file_list = list_files(backup_dir_path);
 
 
         char incremental_final_backup[MAX_PATH + 74]; // A des fins d'organisation il est nécessaire de retirer le premier slash
-        snprintf(incremental_final_backup, sizeof(incremental_final_backup), "%s/", incremental_backup);
+        snprintf(incremental_final_backup, sizeof(incremental_final_backup), "%s/", backup_dir_path);
         for (int i = 0; i < current_file_list->count; i++) {
 
 
@@ -316,7 +362,7 @@ void create_backup(const char *source_dir, const char *backup_dir, const char * 
 
         free(current_file_list);
         char backup_log_incremental[MAX_PATH + 89];
-        snprintf(backup_log_incremental, sizeof(backup_log_incremental), "%s/.backup_log.txt", incremental_backup);
+        snprintf(backup_log_incremental, sizeof(backup_log_incremental), "%s/.backup_log.txt", backup_dir_path);
         FILE *d = fopen(backup_log_incremental, "wb");
         FILE *f = fopen(path, "rb");
         int c;

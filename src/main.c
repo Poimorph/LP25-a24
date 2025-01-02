@@ -171,10 +171,12 @@ int main(int argc, char *argv[]) {
         }
         if (options.d_port == -1) {
             // Nous lançons en local
+            printf("lolilolilo");
             printf("Exécution de la sauvegarde de %s vers %s\n",options.source_path, options.dest_path);
             create_backup(options.source_path,options.dest_path, NULL, NULL);
         } else {
             // Nous lançons en réseau
+            printf("aaaaaaaaaaaaaa : %s", options.d_server);
             printf("Exécution de la sauvegarde de %s vers %s\n",options.source_path, options.dest_path);
             create_backup(options.source_path,options.dest_path, options.d_server, options.d_port);
         }

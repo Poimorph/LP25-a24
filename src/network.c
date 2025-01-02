@@ -49,14 +49,13 @@ void receive_data(int client, void **data, size_t *size) {
     // Implémenter la logique de réception de données depuis un serveur distant
     int value;
     char buffer[1024];
-    char * hello = "Hello from client";
-    send(client, hello, strlen(hello), 0);
-    printf("Hello message sent\n");
+
+
     value = read(client, buffer,
                    1024-1); // subtract 1 for the null
                               // terminator at the end
 
-    printf("char : %d", atoi(buffer));
+
 
     *data = buffer;
 }
