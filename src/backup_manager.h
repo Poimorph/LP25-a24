@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <time.h>
 #include <sys/stat.h>
+#include "options.h"
 
 // Taille Maximale d'un chemin
 #define MAX_PATH 1024

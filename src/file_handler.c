@@ -5,10 +5,10 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include "file_handler.h"
-
+#include "options.h"
 #include "backup_manager.h"
-
 #include "deduplication.h"
+
 /**
  * @brief Convertit un caractère hexadécimal en valeur entière.
  *
