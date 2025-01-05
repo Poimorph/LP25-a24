@@ -103,8 +103,6 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
     DIR *dir = opendir(backup_dir); // On ouvre le dossier de sauvegarde. Et on cherche à savoir si il existe
     if (dir == NULL) {
         //Si il n'existe pas on le créer
-
-
     }
 
     struct sockaddr_in sa;
@@ -509,6 +507,9 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
         perror("Could not open backup id");
         exit(EXIT_FAILURE);
     }
+    if (option.verbose_flag){
+        time_t t_debut = time(NULL);
+    }
 
     char backup_log_path[MAX_PATH + 16];
     snprintf(backup_log_path, sizeof(backup_log_path), "%s/.backup_log.txt", backup_id); // Construction du chemin menant au backup_log
@@ -557,7 +558,11 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
         } else {
             log = log->next;
         }
-
+        if (options.verbose_flag){
+            time_t t_fin = time(NULL);
+            unsigned long duree = difftime(t_fin, t_debut);
+            printf("Durée de la restauration : %ld", duree );
+        }
     }
 
 

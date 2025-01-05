@@ -89,6 +89,11 @@ log_t *read_backup_log(const char *logfile) {
     log_list->head = NULL;
     log_list->tail = NULL;
 
+    if( options.verbose_flag){
+        printf("lecture de %s", logfile);
+    }
+
+
     char line[1024];
     while (fgets(line, sizeof(line), file)) {
         // Supprimer le saut de ligne final
@@ -128,6 +133,17 @@ log_t *read_backup_log(const char *logfile) {
             // on convertie le md5 en `unsigned char`
             unsigned char md5_bytes[MD5_DIGEST_LENGTH];
             md5_hex_to_bytes(md5_str, md5_bytes);
+
+            if (options.verbose_flag){
+                printf("chemin : %s \n", path);
+                printf("date : %d \n", date);
+                for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
+                printf("md5 : %s", md5_bytes[j])
+            }
+                printf("\n")
+            }
+
+
 
 
             // Diviser la ligne en 3 parties : chemin, md5 et date
@@ -318,6 +334,15 @@ void write_log_element(log_element *elt, const char *logfile) {
         perror("Erreur lors de l'ouverture du fichier pour écriture");
         return;
     }
+    if(options.verbose_flag){
+        printf("écriture dans %s :", logfile);
+        printf("chemin: %s", elt->path);
+        printf("date : %s"; elt->date);
+        for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+            printf("MD5 : %02x", elt->md5[i]);
+        }
+    }
+
     fprintf(file, "%s;", elt->path);
     fprintf(file, "%s;", elt->date);
     for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
@@ -417,6 +442,10 @@ PathList *list_files(const char *directory) {
         char path[1024];
         snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name);
 
+        if (options.verbose_flag){
+            printf("Chemin trouvé :%s",path);
+        }
+
         // Ajouter le chemin à la liste
         add_path(list, path);
 
@@ -484,6 +513,9 @@ void copy_file(const char *src, const char * dest) {
         } else{
             // S'il s'agit d'un fichier, on copie le contenue du fichier source dans le fichier destination que
             // l'on crée en meme temps
+            if(options.verbose_flag){
+                printf("début copie de %s", fullpath);
+            }
             FILE *d =fopen(destpath,"w");
             FILE *f =fopen(fullpath,"r");
             int c;
@@ -492,6 +524,9 @@ void copy_file(const char *src, const char * dest) {
                 }
             fclose(f);
             fclose(d);
+            if(options.verbose_flag){
+                printf("fin copie de %s", fullpath);
+            }
 	}
 }
 }
