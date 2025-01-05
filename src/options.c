@@ -5,6 +5,7 @@
 // Définition de la variable globale
 BackupOptions options;
 
+
 void init_options(void) {
     // Initialiser tous les champs à 0/NULL
     options.backup_flag = 0;

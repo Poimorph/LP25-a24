@@ -20,7 +20,7 @@ char * short_first_delimiter(char * path);
 char * reverse_path(char * path);
 char *path_splitting(char *complete_path, char *repertory_path);
 // Fonction pour créer un nouveau backup incrémental
-void create_backup(const char *source_dir, const char *backup_dir, char * ip_address, const int port);
+void create_backup(const char *source_dir, const char *backup_dir);
 // Fonction pour restaurer une sauvegarde
 void restore_backup(const char *backup_id, const char *restore_dir);
 // Fonction permettant la restauration du fichier backup via le tableau de chunk

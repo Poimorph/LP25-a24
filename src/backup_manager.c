@@ -86,11 +86,12 @@ char *reverse_path(char *path) {
 
 
 // Fonction pour créer une nouvelle sauvegarde complète puis incrémentale
-void create_backup(const char *source_dir, const char *backup_dir, char * ip_address, const int port) {
+void create_backup(const char *source_dir, const char *backup_dir) {
     /* @param: source_dir est le chemin vers le répertoire à sauvegarder
     *          backup_dir est le chemin vers le répertoire de sauvegarde
     */
-    printf(" ip :%s\n", ip_address);
+   char * ip_address = options.d_server;
+   const int port = options.d_port;
 
     time_t t = time(NULL); // On définit la variable date
     struct tm tm = *localtime(&t);
@@ -100,26 +101,25 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
     char callback[1024];
     char * callbackR = "Callback";
     snprintf(date, sizeof(date), "%d-%02d-%02d-%02d:%02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-    DIR *dir = opendir(backup_dir); // On ouvre le dossier de sauvegarde. Et on cherche à savoir si il existe
-    if (dir == NULL) {
-        //Si il n'existe pas on le créer
-    }
 
-    struct sockaddr_in sa;
 
-    int result = 0;
+    if (!options.dry_run_flag){
+        struct sockaddr_in sa;
 
-    if (ip_address != NULL) {
-        result = inet_pton(AF_INET, ip_address, &(sa.sin_addr)); // Nous voyons si l'adresse ip est valide
-    }
-    printf("res ; %d\n", result);
+        int result = 0;
 
-    if (result == 0) {
+        if (ip_address != NULL) {
+            result = inet_pton(AF_INET, ip_address, &(sa.sin_addr)); // Nous voyons si l'adresse ip est valide
+        }
 
-        mkdir(backup_dir, 0777);
-    } else {
-        is_network = 1;
-        client = start_connection(ip_address, port);
+        if (result == 0) {
+            mkdir(backup_dir, 0777);
+        } else {
+            is_network = 1;
+            client = start_connection(ip_address, port);
+        }
+    }else {
+                printf("[SIMULATION] Création du répertoire: %s\n", backup_dir);
     }
 
     char path[MAX_PATH + 17];
@@ -127,31 +127,38 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
     snprintf(path, sizeof(path), "%s/.backup_log.txt", backup_dir); // On construit le chemin vers le dossier de backup
     char * buffer;
 
-    int is_backup_exist = 0;
+    // On vérifie si le fichier .backup_log existe
+    int is_backup_exist;
+    if(!options.dry_run_flag){
+        if (is_network) {
+            send_data(client, path, strlen(path));
+            receive_data(client, &buffer, 1024);
+            is_backup_exist = atoi(buffer);
 
-    printf("n : %d\n", is_network);
-    if (is_network) {
+            // On envoie le chemin du dossier de backup
+            send_data(client, backup_dir, strlen(backup_dir));
+            receive_data(client, callback, 1024-1);
+            send_data(client, date, strlen(date));
+            receive_data(client, callback, 1024-1);
 
-        send_data(client, path, strlen(path));
-
-        receive_data(client, &buffer, 1024);
-
-
-
-        is_backup_exist = atoi(buffer);
-
-    } else {
+        } else {
+            is_backup_exist = access(path, F_OK);
+        }
+    }else {
+        printf("[SIMULATION] Vérification de l'existence du fichier .backup_log: %s\n", path);
         is_backup_exist = access(path, F_OK);
+        if (is_backup_exist == -1) {
+            printf("[SIMULATION] Fichier .backup_log non trouvé - Une sauvegarde complète sera effectuée\n");
+        } else {
+            printf("[SIMULATION] Fichier .backup_log trouvé - Une sauvegarde incrémentale sera effectuée\n");
+        }
     }
 
-    send_data(client, backup_dir, strlen(backup_dir));
-    receive_data(client, callback, 1024-1);
-    send_data(client, date, strlen(date));
-    receive_data(client, callback, 1024-1);
 
-    if (is_backup_exist == -1) { //Si le fichier .backup_log n'existe pas on fait une backup complète
+    if (is_backup_exist == -1) {
+        //Si le fichier .backup_log n'existe pas on fait une backup complète
+        printf("[%s] Démarrage d'une sauvegarde complète\n", options.dry_run_flag ? "SIMULATION" : "EXECUTION");
         char backup_dir_path[MAX_PATH+1];
-
         //On construit et on créer le chemin vers le dossier de backup complète
         if (is_network) {
             char temp[MAX_PATH +1];
@@ -161,16 +168,24 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
             mkdir("dest", 0777);
 
         } else {
-
             strcpy(backup_dir_path, backup_dir);
         }
 
+
         char complete_backup[MAX_PATH + 20];
         snprintf(complete_backup, sizeof(complete_backup), "%s/%s", backup_dir_path, date);
-        mkdir(complete_backup, 0777);
+        if(!options.dry_run_flag){
+            mkdir(complete_backup, 0777);
+        }else {
+            printf("[SIMULATION] Création du répertoire: %s\n", complete_backup);
+        }
 
-        // On copie tout les fichiers.
-        copy_file(source_dir, complete_backup);
+        // On copie tous les fichiers.
+        if(!options.dry_run_flag){
+            copy_file(source_dir, complete_backup);
+        }else {
+            printf("[SIMULATION] Copie des fichiers de %s vers %s\n", source_dir, complete_backup);
+        }
 
         FILE* backup_log;
 
@@ -182,14 +197,24 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
 
 
         PathList *list_of_path = list_files(complete_backup);
-        if (is_network) {
-            int value = list_of_path->count;
+        if(list_of_path == NULL) {
+            perror("Erreur lors de la récupération des fichiers");
+            return;
+        }
 
-            send_data(client, &value, sizeof(value));// On envoie au serveur le nombre d'éléments que nous allons envoyer.
-            receive_data(client, callback, 1024-1);
+        if (is_network) {
+            if(!options.dry_run_flag){
+                int value = list_of_path->count;
+
+                send_data(client, &value, sizeof(value));// On envoie au serveur le nombre d'éléments que nous allons envoyer.
+                receive_data(client, callback, 1024-1);
+            }else {
+                printf("[SIMULATION] Envoi du nombre de fichiers à sauvegarder: %d\n", list_of_path->count);
+            }
         }
 
         for (int i = 0; i < list_of_path->count; i++) { // Pour chaque  fichier ou dossier copé.
+            struct stat stat_buffer;
             log_element *log = malloc(sizeof(log_element));
 
             char backup[MAX_PATH + 1]; // On définit son chemin relatif par rapport au dossier de backup
@@ -199,30 +224,39 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
             log->path = full_path;
 
             log->date = date;
-            struct stat stat_buffer;
 
             stat(list_of_path->paths[i], &stat_buffer);
 
             printf("%d", S_ISDIR(stat_buffer.st_mode));
-            if (S_ISREG(stat_buffer.st_mode)) { // Si le présupposé fichier est un fichier alors on calule son md5
-
-                FILE *temp_file = fopen(list_of_path->paths[i], "rb");
-                unsigned char *md5temp = md5_file(temp_file);
-                for (int y = 0; y < MD5_DIGEST_LENGTH; y++) {
-                    log->md5[y] = md5temp[y];
+            if (S_ISREG(stat_buffer.st_mode)) {  // Si le présupposé fichier est un fichier alors on calule son md5
+                if(!options.dry_run_flag){
+                    FILE *temp_file = fopen(list_of_path->paths[i], "rb");
+                    unsigned char *md5temp = md5_file(temp_file);
+                    for (int y = 0; y < MD5_DIGEST_LENGTH; y++) {
+                        log->md5[y] = md5temp[y];
+                    }
+                }else {
+                    printf("[SIMULATION] Calcul du MD5 pour le fichier: %s\n", list_of_path->paths[i]);
                 }
             }
-
-            if (is_network) {
-                write_log_element(log, "dest/.backup_log.txt");
-            } else {
-                write_log_element(log, path);
+            if(!options.dry_run_flag){
+                if (is_network) {
+                    write_log_element(log, "dest/.backup_log.txt");
+                } else {
+                    write_log_element(log, path);
+                }
+            }else {
+                printf("[SIMULATION] Écriture de l'élément de log pour le fichier: %s\n", list_of_path->paths[i]);
             }
 
             free(log);
             int type;
             if (S_ISREG(stat_buffer.st_mode)) {
+                if(!options.dry_run_flag){
                 backup_file(list_of_path->paths[i]); // Enfin on le déduplique.
+                }else {
+                    printf("[SIMULATION] Déduplication du fichier: %s\n", list_of_path->paths[i]);
+                }
                 type = 0;
             } else {
                 type = 1;
@@ -230,16 +264,21 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
 
 
             if (is_network){
-                send_data(client, &type, sizeof(type));
-                receive_data(client, callback, 1024-1);
-                char path_to_send[1024];
-                snprintf(path_to_send, sizeof(path_to_send), "%s/%s", backup_dir, full_path);
-                send_data(client, path_to_send, strlen(path_to_send));
-                printf("full_path : %s", full_path); // On envoie le chemin relatif
-                receive_data(client, callback, 1024-1);
+                if(!options.dry_run_flag){
+                    send_data(client, &type, sizeof(type));
+                    receive_data(client, callback, 1024-1);
+                    char path_to_send[1024];
+                    snprintf(path_to_send, sizeof(path_to_send), "%s/%s", backup_dir, full_path);
+                    send_data(client, path_to_send, strlen(path_to_send));
+                    printf("full_path : %s", full_path); // On envoie le chemin relatif
+                    receive_data(client, callback, 1024-1);
+                }else {
+                    printf("[SIMULATION] Envoi du type de fichier: %d\n", type);
+                    printf("[SIMULATION] Envoi du chemin relatif: %s\n", full_path);
+                }
             }
             if (is_network && S_ISREG(stat_buffer.st_mode)) {
-
+                if(!options.dry_run_flag){
                 FILE* file_desc = fopen(list_of_path->paths[i], "rb");
                 if (fseek(file_desc, 0, SEEK_END) != 0) {
                     perror("Erreur lors du parcours du fichier");
@@ -252,7 +291,6 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
                 }
                 rewind(file_desc);
                 fclose(file_desc);
-                printf("taille: %d", file_size );
                 send_data(client, &file_size, sizeof(file_size));// On envoie d'abord la taille du fichier
                 receive_data(client, callback, 1024-1);
                 int file_desc_final = open(list_of_path->paths[i], O_RDONLY);
@@ -260,11 +298,17 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
 
                 sendfile(client, file_desc_final, NULL, file_size);// On envoie le fichier dédupliqué ou le dossier
                 receive_data(client, callback, 1024-1);
+                }else {
+                    printf("[SIMULATION] on determine la taille du fichier: %s\n", list_of_path->paths[i]);
+                    printf("[SIMULATION] on envoie la taille du fichier : %s\n", list_of_path->paths[i]);
+                    printf("[SIMULATION] on envoie le fichier : %s\n", list_of_path->paths[i]);
+                }
 
             }
         }
         fclose(backup_log);
         if (is_network) {
+            if(!options.dry_run_flag){
             struct stat stats;
             stat("dest/.backup_log.txt", &stats);
             send_data(client, stats.st_size, sizeof(stats.st_size));
@@ -272,6 +316,9 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
             int file_desc = open("dest/.backup_log.txt", O_RDONLY);
             sendfile(client, file_desc, NULL, stats.st_size);
             receive_data(client, callback, 1024-1);
+            }else {
+                printf("[SIMULATION] Envoi du fichier .backup_log\n");
+            }
         }
         if (nftw("dest", rmFiles,10, FTW_D) < 0) {
             perror("ERROR: ntfw");
@@ -279,7 +326,6 @@ void create_backup(const char *source_dir, const char *backup_dir, char * ip_add
         }
 
     } else {
-
         char backup_dir_path[MAX_PATH + 73];
 
         //On construit et on créer le chemin vers le dossier de backup complète
@@ -507,9 +553,7 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
         perror("Could not open backup id");
         exit(EXIT_FAILURE);
     }
-    if (option.verbose_flag){
-        time_t t_debut = time(NULL);
-    }
+    time_t t_debut = time(NULL);
 
     char backup_log_path[MAX_PATH + 16];
     snprintf(backup_log_path, sizeof(backup_log_path), "%s/.backup_log.txt", backup_id); // Construction du chemin menant au backup_log
@@ -537,8 +581,12 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
         struct stat stat_buffer;
         stat(complete_path, &stat_buffer);
         if (S_ISDIR(stat_buffer.st_mode)) { // Si l'élément à restaurer est un dossier
-            if (access(restorePath, F_OK) == -1) {// Et si il n'existe pas dans le dossier de restauration
-                mkdir(restorePath, 0777);
+            if(!options.dry_run_flag){
+                if (access(restorePath, F_OK) == -1) {// Et si il n'existe pas dans le dossier de restauration
+                    mkdir(restorePath, 0777);
+                }
+            }else {
+                printf("[SIMULATION] Création du répertoire: %s\n", restorePath);
             }
         } else {
             Chunk *chunks = NULL;
@@ -548,9 +596,14 @@ void restore_backup(const char *backup_id, const char *restore_dir) {
                 perror("Could not open backup id");
                 exit(EXIT_FAILURE);
             }
+            if(!options.dry_run_flag){
             undeduplicate_file(file, &chunks, &chunk_count);
-            fclose(file);
             write_restored_file(restorePath, chunks, chunk_count);
+            }else {
+                printf("[SIMULATION] Dé-déduplication des chunks\n");
+                printf("[SIMULATION] Restauration du fichier: %s\n", restorePath);
+            }
+            fclose(file);
         }
 
         if (log == logList->tail) {

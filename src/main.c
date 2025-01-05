@@ -125,11 +125,6 @@ int main(int argc, char *argv[]) {
 
 
 
-    //if (options.s_port <= 0 || options.s_port > 65535) {
-        //fprintf(stderr, "Erreur : Numéro de port source invalide\n");
-        //free_options();
-        //return 1;
-    //}
 
     if (options.backup_flag) {
         if (!options.source_path || !options.dest_path) {
@@ -143,16 +138,24 @@ int main(int argc, char *argv[]) {
             free_options();
             return 1;
         }
+        if (options.dry_run_flag) {
+            printf("Mode dry-run activé, \n");
+        }
         if (options.d_port == -1) {
             // Nous lançons en local
-            printf("lolilolilo");
-            printf("Exécution de la sauvegarde de %s vers %s\n",options.source_path, options.dest_path);
-            create_backup(options.source_path,options.dest_path, NULL, NULL);
+            printf("Exécution de la sauvegarde locale de %s vers %s\n",options.source_path, options.dest_path);
+            create_backup(options.source_path,options.dest_path);
         } else {
+            if (options.s_port <= 0 || options.s_port > 65535) {
+                fprintf(stderr, "Erreur : Numéro de port source invalide\n");
+                free_options();
+                return 1;
+            }
             // Nous lançons en réseau
-            printf("aaaaaaaaaaaaaa : %s", options.d_server);
-            printf("Exécution de la sauvegarde de %s vers %s\n",options.source_path, options.dest_path);
-            create_backup(options.source_path,options.dest_path, options.d_server, options.d_port);
+            printf("[%s] Sauvegarde de %s vers %s\n",
+           options.dry_run_flag ? "SIMULATION" : "EXECUTION",
+           options.source_path, options.dest_path);
+            create_backup(options.source_path,options.dest_path);
         }
 
     }
