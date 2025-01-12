@@ -1,13 +1,15 @@
 #include "file_handler.h"
-#include "backup_manager.h"
-#include "deduplication.h"
-#include "options.h"
+
 #include <dirent.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+
+#include "backup_manager.h"
+#include "deduplication.h"
+#include "options.h"
 
 /**
  * @brief Convertit un caractère hexadécimal en valeur entière.
@@ -40,7 +42,6 @@ int hex_to_int(unsigned char c) {
  * effectuer la conversion.
  */
 void md5_hex_to_bytes(unsigned char *hex_md5, unsigned char *md5_bytes) {
-
     // if (strlen(hex_md5) != 32) {
     //     fprintf(stderr, "md5_hex_to_bytes: Invalid MD5 string\n");
     //     return;
@@ -94,7 +95,7 @@ log_t *read_backup_log(const char *logfile) {
     log_list->tail = NULL;
 
     if (options.verbose_flag) {
-        printf("lecture de %s", logfile);
+        printf("lecture de %s\n", logfile);
     }
 
     char line[1024];
@@ -113,7 +114,6 @@ log_t *read_backup_log(const char *logfile) {
             int date_occurence = 0;
 
             for (size_t i = 0; i < strlen(line); i++) {
-
                 if (line[i] == ';') {
                     Inner++;
                 } else if (Inner == 2) {
@@ -140,7 +140,7 @@ log_t *read_backup_log(const char *logfile) {
                 printf("chemin : %s \n", path);
                 printf("date : %s \n", date);
                 for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
-                    printf("md5 : %02x", md5_bytes[j]);
+                    printf("md5 : %02x\n", md5_bytes[j]);
                 }
                 printf("\n");
             }
@@ -246,29 +246,24 @@ void update_backup_log(const log_element *elt, const char *filename,
     int changed = 0;
     int found = 0;
     while (backup_element != NULL) {
-
         char *temp_backup_log_element_path =
             short_first_delimiter((char *)backup_element->path);
 
         if (strcmp(temp_backup_log_element_path, elt->path) == 0) {
             found = 1;
             if (memcmp(backup_element->md5, elt->md5, MD5_DIGEST_LENGTH) != 0) {
-
                 strcpy((char *)elt->path, relative_elt_path);
                 write_log_element((log_element *)elt, filename);
 
                 if (S_ISREG(statbuff.st_mode)) {
-
                     backup_file(absolute_elt_path);
                 }
                 changed = 1;
 
             } else {
-
                 write_log_element(backup_element, filename);
             }
         } else {
-
             write_log_element(backup_element, filename);
         }
 
@@ -282,18 +277,17 @@ void update_backup_log(const log_element *elt, const char *filename,
         write_log_element((log_element *)elt, filename);
 
         if (S_ISREG(statbuff.st_mode)) {
-
             backup_file(absolute_elt_path);
         }
         changed = 1;
     }
     if (changed == 0) {
-
         remove(absolute_elt_path);
     }
     free((log_element *)elt);
     free(backup_log_list);
 }
+
 /**
  * @brief Écrit un élément de log dans le fichier `.backup_log`.
  *
@@ -306,7 +300,6 @@ void update_backup_log(const log_element *elt, const char *filename,
  * @param logfile Le chemin du fichier `.backup_log` où l'élément sera écrit.
  */
 void write_log_element(log_element *elt, const char *logfile) {
-
     if (!elt || !logfile) {
         fprintf(stderr, "Paramètres invalides pour write_log_element.\n");
         return;
@@ -318,11 +311,13 @@ void write_log_element(log_element *elt, const char *logfile) {
     }
     if (options.verbose_flag) {
         printf("écriture dans %s :", logfile);
-        printf("chemin: %s", elt->path);
-        printf("date : %s", elt->date);
+        printf("chemin: %s\n", elt->path);
+        printf("date : %s\n", elt->date);
+        printf("md5 : ");
         for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-            printf("MD5 : %02x", elt->md5[i]);
+            printf("%02x", elt->md5[i]);
         }
+        printf("\n");
     }
 
     fprintf(file, "%s;", elt->path);
@@ -430,7 +425,7 @@ PathList *list_files(const char *directory) {
         snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name);
 
         if (options.verbose_flag) {
-            printf("Chemin trouvé :%s", path);
+            printf("Chemin trouvé :%s\n", path);
         }
 
         // Ajouter le chemin à la liste
@@ -509,7 +504,7 @@ void copy_file(const char *src, const char *dest) {
             // S'il s'agit d'un fichier, on copie le contenue du fichier source
             // dans le fichier destination que l'on crée en meme temps
             if (options.verbose_flag) {
-                printf("début copie de %s", fullpath);
+                printf("début copie de %s\n", fullpath);
             }
             if (!options.dry_run_flag) {
                 FILE *d = fopen(destpath, "w");
@@ -525,7 +520,7 @@ void copy_file(const char *src, const char *dest) {
                        destpath);
             }
             if (options.verbose_flag) {
-                printf("fin copie de %s", fullpath);
+                printf("fin copie de %s\n", fullpath);
             }
         }
     }

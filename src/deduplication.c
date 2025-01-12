@@ -1,13 +1,13 @@
 #include "deduplication.h"
-#include "file_handler.h"
+
+#include <dirent.h>
+#include <openssl/evp.h>
+#include <openssl/md5.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <openssl/md5.h>
-#include <openssl/evp.h>
-#include <dirent.h>
 
-
+#include "file_handler.h"
 
 /**
  * @brief Fonction de hachage MD5 pour l'indexation dans la table de hachage
@@ -96,13 +96,13 @@ int find_md5(Md5Entry *hash_table, unsigned char *md5) {
         return -1;
     }
 
-   // Calculer l'indice dans la table de hachage en utilisant la fonction de hachage
+    // Calculer l'indice dans la table de hachage en utilisant la fonction de hachage
     unsigned int index = hash_md5(md5);
 
     // Vérifier la table à cet indice
     // Si l'entrée à cet indice correspond au MD5 cherché, retourner l'index
     if (memcmp(hash_table[index].md5, md5, MD5_DIGEST_LENGTH) == 0) {
-        return hash_table[index].index;  // Retourner l'index du chunk correspondant
+        return hash_table[index].index; // Retourner l'index du chunk correspondant
     }
 
     // Si aucune correspondance, retourner -1 pour indiquer que le MD5 n'a pas été trouvé
@@ -123,14 +123,14 @@ void add_md5(Md5Entry *hash_table, unsigned char *md5, int index) {
     // Calculer l'indice dans la table de hachage en utilisant la fonction de hachage
     unsigned int hash_index = hash_md5(md5);
 
-    if (memcmp(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH) != 0) { //Verifie que le md5 n'a pas deja été enregistré
+    if (memcmp(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH) != 0) { // Verifie que le md5 n'a pas deja été enregistré
         // Ajouter l'entrée dans la table à l'indice calculé
         // Copier le MD5 dans la table de hachage
         memcpy(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH);
 
         // Enregistrer l'index du chunk dans la table
         hash_table[hash_index].index = index;
-        }
+    }
 }
 
 /**
@@ -189,7 +189,6 @@ unsigned char *md5_file(FILE *file) {
         return NULL;
     }
 
-
     // Lire le fichier entier
     size_t bytes_read = fread(file_buffer, 1, file_size, file);
     if (bytes_read != (size_t)file_size) {
@@ -207,7 +206,6 @@ unsigned char *md5_file(FILE *file) {
 
     return md5_result;
 }
-
 
 /**
  * @brief Fonction pour convertir un fichier non dédupliqué en tableau de chunks
@@ -227,7 +225,7 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table) {
     if (!file || !chunks || !hash_table) {
         fprintf(stderr, "Paramètres invalides pour deduplicate_file\n");
         return -1;
-        }
+    }
 
     // Déterminer la taille du fichier
     if (fseek(file, 0, SEEK_END) != 0) {
@@ -243,9 +241,7 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table) {
 
     rewind(file); // Revenir au début du fichier
 
-
     size_t chunk_count = (file_size + CHUNK_SIZE - 1) / CHUNK_SIZE; // Nombre de chunks nécessaires
-
 
     chunks = realloc(chunks, sizeof(Chunk) * chunk_count);
 
@@ -281,29 +277,24 @@ size_t deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table) {
         unsigned char md5[MD5_DIGEST_LENGTH];
         compute_md5(buffer, bytes_read, md5);
 
-
         // Vérifier si le MD5 existe déjà dans la table de hachage
         int existing_index = find_md5(hash_table, md5);
         if (existing_index == -1) {
             if (i == chunk_count - 1) {
                 // s'il s'agit du dernier chunk or rajoute le caractere '\0' pour signifier la fin de chaine
                 buffer[bytes_to_read] = '\0';
-                }
+            }
             memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
             chunks[i].data = buffer;
-            add_md5(hash_table, md5, i);   // Ajouter le MD5 dans la table de hachage
+            add_md5(hash_table, md5, i); // Ajouter le MD5 dans la table de hachage
         } else {
             chunks[i].data = (void *)(intptr_t)existing_index; // Stocker l'indice du chunk existant dans data
             memcpy(chunks[i].md5, md5, MD5_DIGEST_LENGTH);
             free(buffer);
         }
-
-
     }
     return chunk_count;
 }
-
-
 
 /**
  * @brief Fonction permettant de charger un fichier dédupliqué en table de chunks
@@ -346,7 +337,6 @@ void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
         // Lire la taille des données du chunk (0 pour un chunk référencé)
         size_t data_size;
         if (fread(&data_size, sizeof(size_t), 1, file) != 1) {
-
             perror("Erreur lors de la lecture de la taille du chunk");
             free(*chunks);
             *chunks = NULL;
@@ -371,7 +361,7 @@ void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
                 *chunks = NULL;
                 return;
             }
-            if (i == (*chunk_count) - 1) ((unsigned char*)(*chunks)[i].data)[data_size] = '\0';
+            if (i == (*chunk_count) - 1) ((unsigned char *)(*chunks)[i].data)[data_size] = '\0';
         } else {
             // Chunk référencé : lire l'index du chunk source
             int referenced_index;

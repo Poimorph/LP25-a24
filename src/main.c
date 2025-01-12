@@ -1,15 +1,13 @@
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <getopt.h>
-#include "file_handler.h"
-#include "deduplication.h"
+
 #include "backup_manager.h"
+#include "deduplication.h"
+#include "file_handler.h"
 #include "network.h"
 #include "options.h"
-
-
-
 
 void print_usage(const char *program_name) {
     printf("Usage: %s [options]\n", program_name);
@@ -27,8 +25,6 @@ void print_usage(const char *program_name) {
     printf("  --source PATH  Chemin du dossier source\n");
 }
 
-
-
 int main(int argc, char *argv[]) {
     // tests :
 
@@ -42,24 +38,20 @@ int main(int argc, char *argv[]) {
     // Initialisation des options
     init_options();
 
-
     // // définition des options longues
     struct option long_options[] = {
-        {"backup",        no_argument,       &options.backup_flag,        1},
-        {"restore",       no_argument,       &options.restore_flag,       1},
-        {"list-backups",  no_argument,       &options.list_backups_flag,  1},
-        {"dry-run",       no_argument,       &options.dry_run_flag,       1},
-        {"verbose",       no_argument,       &options.verbose_flag,       1},
-        {"d-server",      required_argument, 0,                           'd'},
-        {"d-port",        required_argument, 0,                           'D'},
-        {"s-server",      required_argument, 0,                           's'},
-        {"s-port",        required_argument, 0,                           'S'},
-        {"dest",          required_argument, 0,                           'e'},
-        {"source",        required_argument, 0,                           'o'},
-        {0, 0, 0, 0}
-    };
-
-
+        {"backup", no_argument, &options.backup_flag, 1},
+        {"restore", no_argument, &options.restore_flag, 1},
+        {"list-backups", no_argument, &options.list_backups_flag, 1},
+        {"dry-run", no_argument, &options.dry_run_flag, 1},
+        {"verbose", no_argument, &options.verbose_flag, 1},
+        {"d-server", required_argument, 0, 'd'},
+        {"d-port", required_argument, 0, 'D'},
+        {"s-server", required_argument, 0, 's'},
+        {"s-port", required_argument, 0, 'S'},
+        {"dest", required_argument, 0, 'e'},
+        {"source", required_argument, 0, 'o'},
+        {0, 0, 0, 0}};
 
     // Gestions des options
     int option_index = 0;
@@ -102,7 +94,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
     // gestion des erreurs :
 
     // Vérification du nombre d'options mutuellement exclusives
@@ -123,9 +114,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-
-
-
     if (options.backup_flag) {
         if (!options.source_path || !options.dest_path) {
             fprintf(stderr, "Erreur : Les chemins source et destination sont requis pour la sauvegarde\n");
@@ -143,8 +131,8 @@ int main(int argc, char *argv[]) {
         }
         if (options.d_port == -1) {
             // Nous lançons en local
-            printf("Exécution de la sauvegarde locale de %s vers %s\n",options.source_path, options.dest_path);
-            create_backup(options.source_path,options.dest_path);
+            printf("Exécution de la sauvegarde locale de %s vers %s\n", options.source_path, options.dest_path);
+            create_backup(options.source_path, options.dest_path);
         } else {
             if (options.s_port <= 0 || options.s_port > 65535) {
                 fprintf(stderr, "Erreur : Numéro de port source invalide\n");
@@ -153,11 +141,10 @@ int main(int argc, char *argv[]) {
             }
             // Nous lançons en réseau
             printf("[%s] Sauvegarde de %s vers %s\n",
-           options.dry_run_flag ? "SIMULATION" : "EXECUTION",
-           options.source_path, options.dest_path);
-            create_backup(options.source_path,options.dest_path);
+                   options.dry_run_flag ? "SIMULATION" : "EXECUTION",
+                   options.source_path, options.dest_path);
+            create_backup(options.source_path, options.dest_path);
         }
-
     }
 
     if (options.restore_flag) {
@@ -167,9 +154,8 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        printf("Restauration de %s vers %s\n",options.source_path, options.dest_path);
-        restore_backup(options.source_path,options.dest_path);
-
+        printf("Restauration de %s vers %s\n", options.source_path, options.dest_path);
+        restore_backup(options.source_path, options.dest_path);
     }
 
     if (options.list_backups_flag) {
@@ -179,9 +165,7 @@ int main(int argc, char *argv[]) {
             return 1;
         }
         list_backups(options.dest_path);
-
     }
-
 
     // Libération de la mémoire
     free_options();

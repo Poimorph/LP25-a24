@@ -1,11 +1,12 @@
 #ifndef DEDUPLICATION_H
 #define DEDUPLICATION_H
 
+#include <dirent.h>
+#include <openssl/md5.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <dirent.h>
-#include <openssl/md5.h>
+
 #include "options.h"
 
 // Taille d'un chunk (4096 octets)
@@ -15,7 +16,6 @@
 // dont on a déjà calculé le MD5 pour effectuer les comparaisons
 #define HASH_TABLE_SIZE 1000
 
-
 /**
  * @brief Structure pour représenter un chunk de données.
  *
@@ -24,7 +24,7 @@
  */
 typedef struct {
     unsigned char md5[MD5_DIGEST_LENGTH]; /**< MD5 du chunk. */
-    void *data; /**< Données du chunk. */
+    void *data;                           /**< Données du chunk. */
 } Chunk;
 
 // Table de hachage pour stocker les MD5 et leurs index
@@ -39,7 +39,6 @@ typedef struct {
     int index;
 } Md5Entry;
 
-
 /**
  * @brief Fonction de hachage MD5 pour l'indexation dans la table de hachage
  *
@@ -47,6 +46,7 @@ typedef struct {
  * @return unsigned int - L'index calculé dans la plage [0, HASH_TABLE_SIZE - 1].
  */
 unsigned int hash_md5(unsigned char *md5);
+
 /**
  * @brief Fonction pour calculer le MD5 d'un chunk.
  *
@@ -123,14 +123,6 @@ void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count);
  *
  * @note   L'appelant est responsable de libérer la mémoire allouée pour le tableau MD5 retourné.
  *
- * @details
- * - La fonction lit tout le contenu du fichier en mémoire, calcule le MD5 pour le fichier complet,
- *   puis retourne le hash résultant.
- * - Si une erreur survient, un message d'erreur est écrit dans `stderr` et `NULL` est retourné.
- * - Les erreurs possibles incluent :
- *   - Fichier invalide ou NULL.
- *   - Problèmes liés à la détermination de la taille ou à la lecture du fichier.
- *   - Échec d'allocation de mémoire.
  */
 unsigned char *md5_file(FILE *file);
 

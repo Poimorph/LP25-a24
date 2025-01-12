@@ -1,10 +1,9 @@
 #include "options.h"
-#include <stdlib.h>
 
+#include <stdlib.h>
 
 // Définition de la variable globale
 BackupOptions options;
-
 
 void init_options(void) {
     // Initialiser tous les champs à 0/NULL
@@ -20,7 +19,6 @@ void init_options(void) {
     options.dest_path = NULL;
     options.source_path = NULL;
 }
-
 
 void free_options(void) {
     // Libérer la mémoire allouée

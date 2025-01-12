@@ -9,13 +9,12 @@
     "editor.insertSpaces": true,
     "editor.tabSize": 4,
     "editor.detectIndentation": false,
-    "C_Cpp.clang_format_style": "file",
-    "C_Cpp.clang_format_fallbackStyle": "none",
+    "C_Cpp.clang_format_style": "{ BasedOnStyle: Google, AllowAllArgumentsOnNextLine: false, IndentWidth: 4, ColumnLimit: 0, PointerAlignment: Right, SpaceBeforeParens: ControlStatements, SpacesBeforeTrailingComments: 1, SpaceAfterCStyleCast: false }",
     "[c]": {
         "editor.defaultFormatter": "ms-vscode.cpptools",
         "editor.formatOnSave": true
     },
-    "editor.rulers": [80],
+    "editor.rulers": [100],
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
     "files.trimFinalNewlines": true,
